@@ -8,6 +8,7 @@ constexpr int DISPLAY_HEIGHT = 700;
 constexpr int DISPLAY_SCALE = 1;
 
 Cloth* g_pCloth = new Cloth(16, 10, 50, Vector2f(100, 100));
+float g_lastElapsedTime = 0.F;
 
 // The entry point for a PlayBuffer program
 void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
@@ -21,10 +22,12 @@ bool MainGameUpdate(float elapsedTime)
 {
 	Play::ClearDrawingBuffer(Play::Colour(72, 63, 94));
 
+	g_pCloth->Update(elapsedTime);
 	g_pCloth->Render();
 
 	Play::PresentDrawingBuffer();
 
+	g_lastElapsedTime = elapsedTime;
 	return Play::KeyDown(VK_ESCAPE);
 }
 
