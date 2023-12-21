@@ -11,8 +11,12 @@ public:
 	void Update();
 	void Render();
 
+	void SetIsSelected(bool selected) { m_isSelected = selected; }
+
 private:
 	ClothPoint* m_leftPoint;
 	ClothPoint* m_rightPoint;
+	float m_length;
+	bool m_isSelected = false;
 };
 
