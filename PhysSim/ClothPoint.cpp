@@ -60,6 +60,7 @@ void ClothPoint::Update(float dT)
 	if (m_isPinned)
 	{
 		m_position = m_initPos;
+		m_prevPos = m_initPos;
 	}
 	else
 	{
