@@ -64,3 +64,15 @@ void Cloth::Render()
 		p->Render();
 	}
 }
+
+void Cloth::Destroy()
+{
+	for (ClothPoint* point : m_vPoints)
+	{
+		delete point;
+	}
+	for (ClothStick* stick : m_vSticks)
+	{
+		delete stick;
+	}
+}

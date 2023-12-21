@@ -12,6 +12,7 @@ public:
 
 	void Update(float dT);
 	void Render();
+	void Destroy();
 
 	const Vector2f GetGravity() const {return m_gravity;}
 	const float GetDrag() const {return m_drag;}

@@ -74,8 +74,7 @@ void ClothPoint::Update(float dT)
 
 void ClothPoint::Render()
 {
-	//Play::DrawSprite("ClothPoint", m_position, 0);
-	Play::DrawCircle(m_position, 2, Play::cBlue);
+	Play::DrawSprite("ClothPoint", m_position, 0);
 }
 
 void ClothPoint::AddStick(ClothStick* stick, int index)

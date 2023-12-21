@@ -6,7 +6,6 @@
 #include "Mouse.h"
 
 Cloth* g_pCloth = new Cloth(29, 15, 25, Vector2f(100, 100));
-float g_lastElapsedTime = 0.F;
 
 // The entry point for a PlayBuffer program
 void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
@@ -28,13 +27,16 @@ bool MainGameUpdate(float elapsedTime)
 
 	Play::PresentDrawingBuffer();
 
-	g_lastElapsedTime = elapsedTime;
 	return Play::KeyDown(VK_ESCAPE);
 }
 
 // Gets called once when the player quits the game 
 int MainGameExit(void)
 {
+	g_pCloth->Destroy();
+	delete g_pCloth;
+	delete &Mouse::Instance();
+
 	Play::DestroyManager();
 	return PLAY_OK;
 }
