@@ -132,18 +132,14 @@
     <ClCompile Include="Cloth.cpp" />
     <ClCompile Include="ClothPoint.cpp" />
     <ClCompile Include="ClothStick.cpp" />
-    <ClCompile Include="Collision.cpp" />
     <ClCompile Include="Mouse.cpp" />
-    <ClCompile Include="PhysicsObject.cpp" />
     <ClCompile Include="PhysSimMain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cloth.h" />
     <ClInclude Include="ClothPoint.h" />
     <ClInclude Include="ClothStick.h" />
-    <ClInclude Include="Collision.h" />
     <ClInclude Include="Mouse.h" />
-    <ClInclude Include="PhysicsObject.h" />
     <ClInclude Include="PhysSimMain.h" />
     <ClInclude Include="Play.h" />
   </ItemGroup>

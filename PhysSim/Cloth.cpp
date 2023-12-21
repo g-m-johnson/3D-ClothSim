@@ -27,7 +27,7 @@ Cloth::Cloth(int width, int height, int spacing, Vector2f start)
 				m_vSticks.push_back(stick);
 			}
 
-			if (y == 0 && (x % 2) == 0)
+			if (y == 0)
 			{
 				point->SetIsPinned(true);
 			}
@@ -58,10 +58,6 @@ void Cloth::Render()
 	for (ClothStick* s : m_vSticks)
 	{
 		s->Render();
-	}
-	for (ClothPoint* p : m_vPoints)
-	{
-		p->Render();
 	}
 }
 

@@ -18,10 +18,9 @@ ClothPoint::~ClothPoint()
 
 void ClothPoint::Update(float dT)
 {
-	Vector2f cursorToPosDir = m_position - Mouse::Instance().GetMousePos();
-	float cursorToPosDistSqr = lengthSqr(cursorToPosDir);
+	Vector2f cursorToPoint = m_position - Mouse::Instance().GetMousePos();
 	float cursorSize = Mouse::Instance().GetMouseCursorSize();
-	bool isSelected = cursorToPosDistSqr < (cursorSize * cursorSize);
+	bool isSelected = lengthSqr(cursorToPoint) < (cursorSize * cursorSize);
 
 	for (ClothStick* stick : m_sticks)
 	{
@@ -56,26 +55,29 @@ void ClothPoint::Update(float dT)
 		m_prevPos = m_position - diff;
 	}
 
+	if (Play::GetMouseButton(Play::RIGHT) && isSelected)
+	{
+		for (ClothStick* stick : m_sticks)
+		{
+			if (stick != nullptr)
+			{
+				stick->SetIsActive(false);
+			}
+		}
+	}
 	
 	if (m_isPinned)
 	{
 		m_position = m_initPos;
-		m_prevPos = m_initPos;
 	}
-	else
-	{
-		Vector2f g = m_cloth->GetGravity();
-		float d = m_cloth->GetDrag();
 
-		Vector2f newPos = m_position + (m_position - m_prevPos) * (1.0f - d) + g * (1.0f - d) * dT * dT;
-		m_prevPos = m_position;
-		m_position = newPos;
-	}
-}
+	Vector2f g = m_cloth->GetGravity();
+	float d = m_cloth->GetDrag();
 
-void ClothPoint::Render()
-{
-	Play::DrawSprite("ClothPoint", m_position, 0);
+	Vector2f newPos = m_position + (m_position - m_prevPos) * (1.0f - d) + g * (1.0f - d) * dT * dT;
+	m_prevPos = m_position;
+	m_position = newPos;
+
 }
 
 void ClothPoint::AddStick(ClothStick* stick, int index)

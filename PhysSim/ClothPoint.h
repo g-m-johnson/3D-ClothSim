@@ -11,7 +11,6 @@ public:
 	~ClothPoint();
 
 	void Update(float dT);
-	void Render();
 
 	void AddStick(ClothStick* stick, int index);
 

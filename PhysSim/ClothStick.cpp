@@ -15,6 +15,11 @@ ClothStick::~ClothStick()
 
 void ClothStick::Update()
 {
+	if (!m_isActive)
+	{
+		return;
+	}
+
 	Vector2f p0Pos = m_leftPoint->GetPosition();
 	Vector2f p1Pos = m_rightPoint->GetPosition();
 
@@ -29,5 +34,10 @@ void ClothStick::Update()
 
 void ClothStick::Render()
 {
+	if (!m_isActive)
+	{
+		return;
+	}
+
 	Play::DrawLine(m_leftPoint->GetPosition(), m_rightPoint->GetPosition(), Play::cWhite);
 }

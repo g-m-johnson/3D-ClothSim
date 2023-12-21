@@ -5,7 +5,7 @@
 #include "Cloth.h"
 #include "Mouse.h"
 
-Cloth* g_pCloth = new Cloth(29, 15, 25, Vector2f(100, 100));
+Cloth* g_pCloth = new Cloth(39, 20, 20, Vector2f(100, 100));
 
 // The entry point for a PlayBuffer program
 void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)

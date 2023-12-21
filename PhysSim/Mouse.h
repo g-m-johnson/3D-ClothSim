@@ -19,6 +19,6 @@ private:
 	Mouse(){}
 	Vector2f m_position;
 	Vector2f m_prevPos;
-	float m_cursorSize = 50;
+	float m_cursorSize = 30;
 };
 
