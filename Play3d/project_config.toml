@@ -1,0 +1,10 @@
+# A project configuration
+name = "Play3d"
+
+type='misc'
+
+# Extra include directories
+include = []
+
+# libraries to link
+link = []

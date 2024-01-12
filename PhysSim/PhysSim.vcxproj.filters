@@ -32,9 +32,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Play.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Cloth.h">
       <Filter>Header Files</Filter>
     </ClInclude>

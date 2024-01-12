@@ -1,10 +1,13 @@
 #define PLAY_IMPLEMENTATION
-#define PLAY_USING_GAMEOBJECT_MANAGER
-#include "Play.h"
+//#define PLAY_USING_GAMEOBJECT_MANAGER
+//#include "Play.h"
+#include "../Play3d/Play3d.h"
+
 #include "PhysSimMain.h"
 #include "Cloth.h"
 #include "Mouse.h"
 
+/*
 Cloth* g_pCloth = new Cloth(39, 20, 20, Vector2f(100, 100));
 
 // The entry point for a PlayBuffer program
@@ -39,4 +42,42 @@ int MainGameExit(void)
 
 	Play::DestroyManager();
 	return PLAY_OK;
+}
+*/
+
+
+//------------------------------------------------------------------------------
+
+using namespace Play3d;
+
+int PlayMain()
+{
+	SystemDesc systemDesc;
+	systemDesc.title = "Disco Prototype";
+	systemDesc.width = 1920;
+	systemDesc.height = 1080;
+	System::Initialise(systemDesc);
+
+	Demo::SetDebugCameraPosition(Play3d::Vector3f(0, 1.7f, 4), kfPi, 0.5f);
+	Demo::SetDebugCameraFOV(kfPi / 4.f, 0.1f, 25.f);
+
+
+	bool bKeepGoing = true;
+	while (bKeepGoing)
+	{
+		if (System::BeginFrame() != RESULT_OK || Input::IsKeyPressed(VK_ESCAPE))
+		{
+			bKeepGoing = false;
+		}
+
+		Demo::UpdateDebugCamera();
+		Demo::SetDebugCameraMatrices();
+
+
+		System::EndFrame();
+	}
+
+	System::Shutdown();
+
+	return 0;
 }
