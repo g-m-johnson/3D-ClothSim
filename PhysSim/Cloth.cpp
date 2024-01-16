@@ -68,10 +68,10 @@ void Cloth::CreateCloth()
 		}
 	}
 
+
 	/// CALCULATE INDICES ------------------------------------------------------
 
 	std::vector<u32> indices;
-
 	for (int i = 0; i < m_height - 1; i++)
 	{
 		for (int j = 0; j < m_width - 1; j++)
