@@ -1,5 +1,6 @@
 #pragma once
-#include "Play.h"
+#include "../Play3d/Play3d.h"
+using namespace Play3d;
 
 class Mouse
 {
@@ -17,8 +18,10 @@ public:
 	float GetMouseCursorSize() { return m_cursorSize; }
 private:
 	Mouse(){}
+	
 	Vector2f m_position;
 	Vector2f m_prevPos;
+	
 	float m_cursorSize = 30;
 };
 

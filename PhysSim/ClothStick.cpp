@@ -1,6 +1,6 @@
 #include "ClothStick.h"
 #include "ClothPoint.h"
-#include "Play.h"
+#include "../Play3d/Play3d.h"
 
 ClothStick::ClothStick(ClothPoint* leftPoint, ClothPoint* rightPoint)
 	: m_leftPoint(leftPoint)
@@ -20,16 +20,16 @@ void ClothStick::Update()
 		return;
 	}
 
-	Vector2f p0Pos = m_leftPoint->GetPosition();
-	Vector2f p1Pos = m_rightPoint->GetPosition();
+	Vector3f p0Pos = m_leftPoint->GetPosition();
+	Vector3f p1Pos = m_rightPoint->GetPosition();
 
-	Vector2f diff = p0Pos - p1Pos;
+	Vector3f diff = p0Pos - p1Pos;
 	float dist = sqrtf(diff.x * diff.x + diff.y * diff.y);
 	float diffFactor = (m_length - dist) / dist;
-	Vector2f offset = diff * diffFactor * 0.5f;
+	Vector3f offset = diff * diffFactor * 0.5f;
 
-	m_leftPoint->SetPosition(Vector2f(p0Pos.x + offset.x, p0Pos.y + offset.y));
-	m_rightPoint->SetPosition(Vector2f(p1Pos.x - offset.x, p1Pos.y - offset.y));
+	m_leftPoint->SetPosition(Vector3f(p0Pos.x + offset.x, p0Pos.y + offset.y, 0));
+	m_rightPoint->SetPosition(Vector3f(p1Pos.x - offset.x, p1Pos.y - offset.y, 0));
 }
 
 void ClothStick::Render()
@@ -38,6 +38,5 @@ void ClothStick::Render()
 	{
 		return;
 	}
-
-	Play::DrawLine(m_leftPoint->GetPosition(), m_rightPoint->GetPosition(), Play::cWhite);
+	Play3d::Graphics::DrawLine(m_leftPoint->GetPosition(), m_rightPoint->GetPosition(), Play3d::Colour::White);
 }

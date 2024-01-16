@@ -2,12 +2,16 @@
 
 void Mouse::Initialise()
 {
-	m_position = Play::GetMousePos();
+	Play3d::Input::MouseState mouse = Play3d::Input::GetMouseState();
+
+	m_position =  Play3d::Vector2f(mouse.m_x, mouse.m_y);
 	m_prevPos = m_position;
 }
 
 void Mouse::Update()
 {
+	Play3d::Input::MouseState mouse = Play3d::Input::GetMouseState();
+	
 	m_prevPos = m_position;
-	m_position = Play::GetMousePos();
+	m_position = Play3d::Vector2f(mouse.m_x, mouse.m_y);
 }

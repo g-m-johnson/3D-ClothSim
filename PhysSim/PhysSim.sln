@@ -5,6 +5,8 @@ VisualStudioVersion = 17.7.34302.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PhysSim", "PhysSim.vcxproj", "{C0DB25D4-AAA5-4D97-B4E6-FBCD9E16AA2E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Play3d", "..\..\..\..\..\Documents\gLTF-Reader\Play3d\Play3d.vcxproj", "{C0047765-70D3-5212-897D-AD56A8653FDF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{C0DB25D4-AAA5-4D97-B4E6-FBCD9E16AA2E}.Release|x64.Build.0 = Release|x64
 		{C0DB25D4-AAA5-4D97-B4E6-FBCD9E16AA2E}.Release|x86.ActiveCfg = Release|Win32
 		{C0DB25D4-AAA5-4D97-B4E6-FBCD9E16AA2E}.Release|x86.Build.0 = Release|Win32
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Debug|x64.ActiveCfg = Debug|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Debug|x64.Build.0 = Debug|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Debug|x86.ActiveCfg = Debug|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Debug|x86.Build.0 = Debug|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Release|x64.ActiveCfg = Release|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Release|x64.Build.0 = Release|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Release|x86.ActiveCfg = Release|x64
+		{C0047765-70D3-5212-897D-AD56A8653FDF}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

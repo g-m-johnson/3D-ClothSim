@@ -4,7 +4,7 @@
 #include "ClothStick.h"
 #include "Mouse.h"
 
-ClothPoint::ClothPoint(Cloth* cloth, Vector2f pos)
+ClothPoint::ClothPoint(Cloth* cloth, Vector3f pos)
 	: m_cloth(cloth)
 	, m_position(pos)
 	, m_prevPos(pos)
@@ -18,7 +18,7 @@ ClothPoint::~ClothPoint()
 
 void ClothPoint::Update(float dT)
 {
-	Vector2f cursorToPoint = m_position - Mouse::Instance().GetMousePos();
+	Vector3f cursorToPoint = m_position - Vector3f(Mouse::Instance().GetMousePos(), 0);
 	float cursorSize = Mouse::Instance().GetMouseCursorSize();
 	bool isSelected = lengthSqr(cursorToPoint) < (cursorSize * cursorSize);
 
@@ -32,30 +32,34 @@ void ClothPoint::Update(float dT)
 
 	float e = m_cloth->GetElasticity();
 
-	if (Play::GetMouseButton(Play::LEFT) && isSelected)
+	if (Play3d::Input::GetMouseState().m_leftButton && isSelected)
 	{
-		Vector2f diff = Mouse::Instance().GetMousePos() - Mouse::Instance().GetMousePrevPos();
+		float diffX = Play3d::Input::GetMouseState().m_deltaX;
+		float diffY = Play3d::Input::GetMouseState().m_deltaY;
 
-		if (diff.x > e)
+		if (diffX > e)
 		{
-			diff.x = e;
+			diffX = e;
 		}
-		if (diff.y > e)
+		if (diffY > e)
 		{
-			diff.y = e;
+			diffY = e;
 		}
-		if (diff.x < -e)
+		if (diffX < -e)
 		{
-			diff.x = -e;
+			diffX = -e;
 		}
-		if (diff.y < -e)
+		if (diffY < -e)
 		{
-			diff.y = -e;
+			diffY = -e;
 		}
+
+		Vector3f diff = Vector3f(diffX, diffY, 0);
 		m_prevPos = m_position - diff;
 	}
 
-	if (Play::GetMouseButton(Play::RIGHT) && isSelected)
+	
+	if (Play3d::Input::GetMouseState().m_rightButton && isSelected)
 	{
 		for (ClothStick* stick : m_sticks)
 		{
@@ -71,10 +75,10 @@ void ClothPoint::Update(float dT)
 		m_position = m_initPos;
 	}
 
-	Vector2f g = m_cloth->GetGravity();
+	Vector3f g = m_cloth->GetGravity();
 	float d = m_cloth->GetDrag();
 
-	Vector2f newPos = m_position + (m_position - m_prevPos) * (1.0f - d) + g * (1.0f - d) * dT * dT;
+	Vector3f newPos = m_position + (m_position - m_prevPos) * (1.0f - d) + g * (1.0f - d) * dT * dT;
 	m_prevPos = m_position;
 	m_position = newPos;
 
