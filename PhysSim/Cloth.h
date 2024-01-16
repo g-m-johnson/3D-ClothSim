@@ -8,7 +8,7 @@ class ClothStick;
 class Cloth
 {
 public:
-	Cloth(int width, int height, int spacing, Vector3f start);
+	Cloth(int width, int height, int spacing);
 	~Cloth();
 
 	void Initialise();
@@ -22,8 +22,8 @@ public:
 	const float GetDrag() const {return m_drag;}
 	const float GetElasticity() const {return m_elasticity;}
 
-	void CreateCloth();
 private:
+	void CreateClothMesh();
 
 	Vector3f m_gravity{ 0.0f, 981.0f, 0.0f };
 	

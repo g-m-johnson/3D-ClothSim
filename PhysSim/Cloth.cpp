@@ -2,7 +2,7 @@
 #include "ClothPoint.h"
 #include "ClothStick.h"
 
-Cloth::Cloth(int width, int height, int spacing, Vector3f start)
+Cloth::Cloth(int width, int height, int spacing)
 	: m_width(width)
 	, m_height(height)
 	, m_spacing(spacing)
@@ -11,7 +11,7 @@ Cloth::Cloth(int width, int height, int spacing, Vector3f start)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			ClothPoint* point = new ClothPoint(this, Vector3f(start.x + (x * spacing), start.y + (y * spacing), 0));
+			ClothPoint* point = new ClothPoint(this, Vector3f((x * spacing), (y * spacing), 0));
 			
 			if (x != 0)
 			{
@@ -46,11 +46,11 @@ Cloth::~Cloth()
 
 void Cloth::Initialise()
 {
-	CreateCloth();
+	CreateClothMesh();
 }
 
 
-void Cloth::CreateCloth()
+void Cloth::CreateClothMesh()
 {
 	const u32 kVertices = m_width * m_height;
 	std::vector<u32> colours(kVertices, 0xFFFFffff);
