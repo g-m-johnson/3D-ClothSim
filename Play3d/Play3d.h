@@ -2,8 +2,8 @@
 //      Copyright (C) Sumo Digital Ltd. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////
 
-#define PLAY3D_VERSION "v1.0.0-28-gb36d567"
-#define PLAY3D_BUILD_TIME "2023-05-04 14:36:31.331541"
+#define PLAY3D_VERSION "v1.0.0-69-g96c14ee"
+#define PLAY3D_BUILD_TIME "2023-12-11 11:46:40.501553"
 
 #pragma once
 #ifndef __PLAY3D__
@@ -27,7 +27,7 @@
 #include <windows.h>
 #include <wincodec.h>
 #include <dxgi1_3.h>
-#include <d3d11.h>
+#include <d3d11_1.h>
 #include <wrl/client.h>
 #include <hidusage.h>
 #include <xaudio2.h>
@@ -36,6 +36,8 @@
 //------------------------------------------------ Play3dApi.h ------------------------------------------------
 
 //------------------------------------------------- TypesApi.h -------------------------------------------------
+
+#define XAUDIO2_HELPER_FUNCTIONS
 
 //---------------------------------------------- Debug/TraceApi.h ----------------------------------------------
 
@@ -1508,8 +1510,9 @@ namespace Play3d::Audio
 
 	struct SoundDesc
 	{
-		size_t m_sizeBytes;
-		const void* m_pData;
+		size_t m_sizeBytes = 0;
+		const void* m_pData = nullptr;
+		bool m_bLoop = false;
 	};
 
 	class Sound
@@ -1530,9 +1533,11 @@ namespace Play3d::Audio
 
 namespace Play3d::Audio
 {
-	SoundId LoadSoundFromFile(const char* filePath);
+	SoundId LoadSoundFromFile(const char* filePath, bool bEnableLooping = false);
 	VoiceId PlaySound(SoundId soundId, f32 fGain = 1.0f, f32 fPan = 0.5f);
 	void StopSound(VoiceId voiceId);
+
+	void* GetAudioDevice();
 };
 
 //------------------------------------------- Graphics/MeshBuilder.h -------------------------------------------
@@ -1764,6 +1769,15 @@ namespace Play3d::Graphics
 		COUNT,
 	};
 
+	enum class MeshTopology
+	{
+		POINT_LIST,
+		LINE_LIST,
+		LINE_STRIP,
+		TRI_LIST,
+		TRI_STRIP,
+	};
+
 	namespace StreamFlags
 	{
 		enum Type
@@ -1799,6 +1813,7 @@ namespace Play3d::Graphics
 		u32 m_streamCount = 0;
 		u32 m_indexCount = 0;
 		u32 m_vertexCount = 0;
+		MeshTopology m_topology = MeshTopology::TRI_LIST;
 	};
 
 	class Mesh
@@ -1829,6 +1844,8 @@ namespace Play3d::Graphics
 
 		u32 m_indexCount;
 		u32 m_vertexCount;
+
+		D3D11_PRIMITIVE_TOPOLOGY m_topology;
 
 		bool m_bIsSkinnedMesh;
 	};
@@ -1954,7 +1971,8 @@ namespace Play3d::Graphics
 		{
 			DEBUG = 0x1,
 			SOURCE_FILE = 0x2,
-			DISABLE_STANDARD_MACROS = 0x4
+			DISABLE_STANDARD_MACROS = 0x4,
+			ADD_RUNTIME_COMPILE_MACRO = 0x8
 		};
 	}
 
@@ -1984,6 +2002,7 @@ namespace Play3d::Graphics
 
 		//! Compiles a shader from HLSL and adds it to the resource manager for shaders.
 		static ShaderId Compile(const ShaderCompilerDesc& rDesc);
+		static ShaderId LoadCompiledShaderFromFile(const char* pFilePath, ShaderType type);
 
 	private:
 		ShaderType m_shaderType;
@@ -2006,8 +2025,9 @@ namespace Play3d::Graphics
 	{
 		GRAYSCALE,
 		RGBA,
+		BGRA,
 		RGBA_F16,
-		DEPTH
+		DEPTH,
 	};
 
 	namespace TextureFlags
@@ -2017,7 +2037,8 @@ namespace Play3d::Graphics
 		{
 			GENERATE_MIPS = 0x1,
 			ENABLE_TEXTURE = 0x2,
-			ENABLE_RENDER_TARGET = 0x4
+			ENABLE_RENDER_TARGET = 0x4,
+			ENABLE_DYNAMIC = 0x8,
 		};
 	}
 
@@ -2026,8 +2047,9 @@ namespace Play3d::Graphics
 		u32 m_width = 0;
 		u32 m_height = 0;
 		TextureFormat m_format = TextureFormat::RGBA;
-		void* m_pImageData = nullptr;
+		const void* m_pImageData = nullptr;
 		TextureFlags::Type m_flags = TextureFlags::GENERATE_MIPS | TextureFlags::ENABLE_TEXTURE;
+		const char* m_pDebugName = nullptr;
 	};
 
 	struct TextureArrayDesc
@@ -2037,6 +2059,7 @@ namespace Play3d::Graphics
 		TextureFormat m_format = TextureFormat::RGBA;
 		std::vector<std::vector<u8>> m_ppImageData;
 		TextureFlags::Type m_flags = TextureFlags::GENERATE_MIPS | TextureFlags::ENABLE_TEXTURE;
+		const char* m_pDebugName = nullptr;
 	};
 
 	class Texture
@@ -2044,7 +2067,7 @@ namespace Play3d::Graphics
 	public:
 		Texture(const TextureDesc& rDesc);
 		Texture(const TextureArrayDesc& rDesc);
-
+		ID3D11Texture2D* GetTexture() { return m_pTexture.Get(); }
 	private:
 		friend class Graphics_Impl;
 		ComPtr<ID3D11Texture2D> m_pTexture;
@@ -2072,13 +2095,23 @@ namespace Play3d::Graphics
 	{
 		CLAMP,
 		WRAP,
-		MIRROR
+		MIRROR,
+		MIRROR_ONCE,
+		BORDER
 	};
 
 	struct SamplerDesc
 	{
 		FilterMode m_filter = FilterMode::BILINEAR;
-		AddressMode m_addressMode = AddressMode::WRAP;
+		AddressMode m_addressModeU = AddressMode::WRAP;
+		AddressMode m_addressModeV = AddressMode::WRAP;
+		AddressMode m_addressModeW = AddressMode::WRAP;
+		ColourValue m_borderColour = Colour::Black;
+
+		void SetUniformAddressMode(AddressMode mode)
+		{
+			m_addressModeU = m_addressModeV = m_addressModeW = mode;
+		}
 	};
 
 	class Sampler
@@ -2129,6 +2162,7 @@ namespace Play3d::Graphics
 	{
 		ADDITIVE,
 		ALPHABLEND,
+		MULTIPLY,
 		NONE
 	};
 
@@ -2191,6 +2225,12 @@ namespace Play3d::Graphics
 		//! @brief Helper method for setting up a material and compiling shaders.
 		//! Also provides an example for setting up a ComplexMaterialDesc.
 		ComplexMaterialDesc& SetupFromHLSLFile(const char* name, const char* hlslPath);
+
+		//! @brief Helper method for setting up a material from compiled fxo shaders
+		ComplexMaterialDesc& SetupFromCompiledShaders(const char* name, const char* fxoFolderPath);
+
+		//! @brief Helper method for setting up a material and using compiled fxo shaders, then raw HLSL in that order.
+		ComplexMaterialDesc& SetupFromEitherHLSLorCompiledShaders(const char* name, const char* path);
 	};
 
 	//! @brief Materials are resources that collect pipeline state settings and resources to bind on the pipeline.
@@ -2201,6 +2241,7 @@ namespace Play3d::Graphics
 		Material(const ComplexMaterialDesc& rDesc);
 		~Material();
 		void SetTexture(u32 slot, TextureId id);
+		void SetModified(bool bModified = true) { m_bModifiedFlag = bModified; }
 
 	private:
 		void SetupState(ID3D11Device* pDevice, const MaterialStateSettings& state);
@@ -2218,6 +2259,7 @@ namespace Play3d::Graphics
 		TextureId m_texture[kMaxMaterialTextureSlots];
 		SamplerId m_sampler[kMaxMaterialTextureSlots];
 		bool m_bNullPixelShader = false;
+		bool m_bModifiedFlag = false;
 	};
 }
 
@@ -2234,11 +2276,11 @@ namespace Play3d::Graphics
 		using Type = u32;
 		enum Enum : u32
 		{
-			CONSTANT = 1u,
-			VERTEX = 2u,
-			INDEX = 4u,
-			SRV = 8u,
-			UAV = 16u,
+			CONSTANT = 0x1u,
+			VERTEX = 0x2u,
+			INDEX = 0x4u,
+			SRV = 0x08u,
+			UAV = 0x10u,
 		};
 		static constexpr u32 kMaxBits = 5;
 	};
@@ -2249,24 +2291,27 @@ namespace Play3d::Graphics
 		using Type = u32;
 		enum Enum : u32
 		{
-			DYNAMIC = 1u,
-			IMMUTABLE = 2u,
-			STRUCTURED = 4u,
+			DYNAMIC = 0x1u,
+			IMMUTABLE = 0x2u,
+			STRUCTURED = 0x4u,
+			INDIRECT_ARGS = 0x8u
 		};
 		static constexpr u32 kMaxBits = 3;
 	};
 
 	struct BufferDesc
 	{
-		size_t m_sizeBytes;
-		const void* m_pInitialData;
-		BufferBindFlags::Type m_bindFlags;
-		BufferFlags::Type m_flags;
-		u32 m_structureStrideBytes;
+		size_t m_sizeBytes = 0;
+		const void* m_pInitialData = nullptr;
+		const char* m_pDebugName = nullptr;
+		BufferBindFlags::Type m_bindFlags = 0;
+		BufferFlags::Type m_flags = 0;
+		u32 m_structureStrideBytes = 0;
 
 		BufferDesc()
 			: m_sizeBytes(0)
 			, m_pInitialData(nullptr)
+			, m_pDebugName(nullptr)
 			, m_bindFlags(0)
 			, m_flags(0)
 			, m_structureStrideBytes(0)
@@ -2326,16 +2371,13 @@ namespace Play3d::Graphics
 	public:
 		Buffer(const BufferDesc& rDesc);
 
-	private:
+		ID3D11Buffer* GetBuffer();
 		ID3D11ShaderResourceView* GetSRV();
-
 		ID3D11UnorderedAccessView* GetUAV();
 
-		friend class Graphics_Impl;
+	private:
 		ComPtr<ID3D11Buffer> m_pBuffer;
-
 		ComPtr<ID3D11ShaderResourceView> m_pSRV;
-
 		ComPtr<ID3D11UnorderedAccessView> m_pUAV;
 	};
 }
@@ -2380,6 +2422,9 @@ namespace Play3d::Graphics
 
 	//! @brief Sets the default render target clear colour.
 	void SetDefaultRenderTargetClearColour(ColourValue colour);
+
+	//! @brief Sets the application into full screen or windowed.
+	void SetFullscreenMode(bool bEnable);
 
 	//! ---------------------------------------------------------
 	//! Camera Viewport Interface
@@ -2471,15 +2516,25 @@ namespace Play3d::Graphics
 	//! Shaders must support the SV_INSTANCE semantic.
 	void DrawInstancedMesh(MeshId hMesh, u32 kInstanceCount, u32 kInstanceOffset = 0, u32 elementOffset = 0, u32 elementCount = ~0u);
 
-	//! ---------------------------------------------------------
-	//! PostFX Interface:
-	//! ---------------------------------------------------------
-
 	//! @brief Makes a draw call without a vertex buffer.
 	//! @param elements : Number of vertices to process 3 for a triangle.
 	//! Useful for shader only effects / postfx
 	//! Shaders must support the SV_VERTEX_ID semantic.
 	void DrawWithoutVertices(u32 elements);
+
+	struct IndirectDrawArgs
+	{
+		u32 vertexCount;
+		u32 instanceCount;
+		u32 vertexOffset;
+		u32 instanceOffset;
+	};
+
+	//! @brief Performs an indirect draw call using a draw arguments buffer.
+	//! The underlying DX11 draw call is : DrawInstancedIndirect()
+	//! The buffer containing the draw arguments must conform to the IndirectDrawArgs structure.
+	//! Buffer must have been created with BufferBindFlags::INDIRECT_ARGS
+	void DrawIndirectWithoutVertices(BufferId hArgBuffer, u32 offset);
 
 	//! ---------------------------------------------------------
 	//! Materials Interface:
@@ -2494,6 +2549,14 @@ namespace Play3d::Graphics
 	//! @param size : size in bytes of the data block
 	//! Take care with data alignment to match your shader constant buffer.
 	void UpdateMaterialConstants(MaterialId materialId, const void* pData, size_t size);
+
+	//! @brief Updates GPU texture data, data must be the original size.
+	//! @param textureId : The texture we are updating.
+	//! @param mipId : Index of mip level to update, 0 is largest
+	//! @param sliceId : Index of texture slice to update, 0 is first
+	//! @param pData : Image data, must be in the original pixel format specified when creating the texture, data is copied.
+	//! @param rowPitchBytes : pitch in bytes of source image (e.g. width * 4 if RGBA)
+	void UpdateTexture(TextureId textureId, u32 mipId, u32 sliceId, const void* pData, size_t rowPitchBytes);
 
 	//! @brief Bind a texture to global slot.
 	//! This is useful for environment maps or shadow maps where the texture is used for many draw calls.
@@ -2537,6 +2600,9 @@ namespace Play3d::Graphics
 
 	//! @brief Creates a Plane mesh.
 	MeshId CreatePlane(f32 fWidth, f32 fHeight, ColourValue colour = Colour::White, f32 fUVScale = 1.0f);
+
+	//! @brief Creates a Plane mesh in the XY plane with a lower left origin
+	MeshId CreatePlaneXY(f32 fWidthX, f32 fHeightY, ColourValue colour = Colour::White, f32 fUVScale = 1.0f);
 
 	//! @brief Creates a Cubic mesh with a given side length.
 	MeshId CreateMeshCube(f32 size, ColourValue colour = Colour::White);
@@ -2589,7 +2655,7 @@ namespace Play3d::Graphics
 	TextureId CreateTextureCheckerboard(u32 width, u32 height, ColourValue a, ColourValue b, u32 checkSize);
 
 	//! @brief Creates a texture from a .png or .jpg file.
-	TextureId CreateTextureFromFile(const char* pFilePath);
+	TextureId CreateTextureFromFile(const char* pFilePath, bool bGenerateMipLevels = true);
 
 	//! @brief Creates a Texture2dArray from series of equal sized .png or .jpg file.
 	TextureId CreateTextureArrayFromFiles(std::initializer_list<const char*> pFilePaths);
@@ -2635,6 +2701,31 @@ namespace Play3d::Graphics
 	//! @param groupCountZ : Z dimension of thread groups to create.
 	//! Dispatches X*Y*Z thread groups in total.
 	void Dispatch(u32 groupCountX, u32 groupCountY = 1, u32 groupCountZ = 1);
+
+	class IGraphicsCallbacks
+	{
+	public:
+		virtual void OnBeginFrame() = 0;
+		virtual void OnEndFrame() = 0;
+	};
+
+	//! @brief returns the GPU frame time in milliseconds.
+	float GetGPUFrameTime();
+
+	//! @brief pushes a gpu marker into the GPU command buffer.
+	void PushMarker(const char* name);
+
+	//! @brief pops a gpu marker on the GPU command buffer.
+	void PopMarker();
+
+	//! @brief A callback signature that can be used to tap into the main window event routine.
+	using WindowCallback = std::function<int(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)>;
+
+	//! @brief Adds a windows message callback.
+	void RegisterWindowCallback(WindowCallback callback);
+
+	HWND GetWindowHandle();
+
 }
 
 //------------------------------------------------- UI/UIApi.h -------------------------------------------------
@@ -2643,18 +2734,86 @@ namespace Play3d::Graphics
 
 namespace Play3d::Sprite
 {
-	//! The Sprite interface is not yet implemented
 	class SpriteAtlas;
-	struct SpriteAtlasDesc
+
+	struct GridSpriteAtlasDesc
 	{
+		u32 imageWidth = 0;
+		u32 imageHeight = 0;
+		u32 gridSizeX = 1;
+		u32 gridSizeY = 1;
+	};
+
+	struct UVRect
+	{
+		u32 x, y, width, height;
+	};
+
+	struct LooseSpriteAtlasDesc
+	{
+		u32 imageWidth = 0;
+		u32 imageHeight = 0;
+		u32 spriteCount = 0;
+		const UVRect* uvArray = nullptr;
 	};
 
 	using SpriteAtlasId = IdKey<SpriteAtlas>;
 	class SpriteAtlas
 	{
+	public:
+		//! Describes the uvs of a sprite
+		struct SpriteInfo
+		{
+			UVRect dimPixels;
+			Vector4f uv[4];
+			Vector4f offset;
+		};
+
+		//! Constructs a sprite atlas using a grid
+		SpriteAtlas(const GridSpriteAtlasDesc& rDesc);
+
+		//! Constructs a sprite atlas using loose collection of uv regions.
+		//! Use this for packed sprite atlases.
+		SpriteAtlas(const LooseSpriteAtlasDesc& rDesc);
+
+		Graphics::BufferId GetBuffer() const { return m_bufferId; }
+	private:
+		void InternalBuild(const LooseSpriteAtlasDesc& rDesc);
+		void UpdateGPUBuffer();
+	private:
+		u32 m_imageWidth = 0;
+		u32 m_imageHeight = 0;
+		std::vector<SpriteInfo> m_spriteInfo;
+		Graphics::BufferId m_bufferId;
 	};
 
-	void DrawSprite(SpriteAtlasId hAtlas, Graphics::TextureId texture, u32 index);
+	enum class SpriteBatchSortOrder
+	{
+		kNone,
+		kFrontToBackZ,
+		kBackToFrontZ,
+	};
+
+	//! @brief Returns matrix for transforming sprites on the screen.
+	//! An orthographic matrix at 1 unit = 1 pixel with +Y down the screen.
+	Matrix4x4f SpriteScreenMatrix();
+
+	//! Begins a new batch of sprites from a specified atlas and texture specified in a material.
+	//! Each batch can use a different texture and shader combination.
+	//! Material Shaders must support sprite batch rendering.
+	void BeginSpriteBatch(SpriteAtlasId hAtlas, Graphics::MaterialId materialId, const Matrix4x4f& viewProject,
+						  SpriteBatchSortOrder sortOrder = SpriteBatchSortOrder::kNone);
+
+	//! Appends a sprite to the current batch, nothing is drawn until the batch is closed with EndSpriteBatch().
+	void DrawSprite(u32 spriteIndex, const Vector2f& vPosition, float fDepth, float fAngle, const Vector2f& vScale, const Vector2f& vOffset, ColourValue colour);
+
+	//! Ends, closes the current sprite batch and dispatches rendering commands.
+	void EndSpriteBatch();
+
+	//! Creates a material based on an internal sprite shader using the specified texture.
+	Graphics::MaterialId CreateSpriteMaterial(const char* pName, Graphics::TextureId hTexture,
+											  bool bPointSample = false, bool bBlendEnable = true);
+
 }
 
 //------------------------------------------------- UI/Font.h -------------------------------------------------
@@ -2666,7 +2825,8 @@ namespace Play3d::UI
 
 	struct FontDesc
 	{
-		std::string m_fontName;
+		std::string m_fontName; //! Windows font name
+		std::string m_fontPath; //! Optional .ttf font path, the font is loaded for the duration of the program.
 		std::string m_charSet;
 		u32 m_pointSize;
 		u32 m_textureWidth;
@@ -2685,9 +2845,16 @@ namespace Play3d::UI
 	public:
 		Font(const FontDesc& rDesc);
 		~Font();
+
+		void DrawCharacterArray(ID3D11DeviceContext* pDC, const Vector2f& position, const char* pCharArray,
+								const ColourValue* pColourArray, u32 lines,
+								u32 columns);
+
 		void DrawString(ID3D11DeviceContext* pDC, const Vector2f& position, ColourValue colour, std::string_view text);
 
 	private:
+		void Draw_Internal(ID3D11DeviceContext* pDC, u32 vertexCount);
+
 		struct GlyphData
 		{
 			Vector2f uv0;
@@ -2706,6 +2873,28 @@ namespace Play3d::UI
 		ComPtr<ID3D11Buffer> m_pVertexBuffer;
 		u32 m_defaultAdvance;
 	};
+
+	class FontRenderSystem : public Graphics::IGraphicsCallbacks
+	{
+		PLAY_SINGLETON_INTERFACE(FontRenderSystem);
+
+	public:
+		FontRenderSystem();
+		~FontRenderSystem();
+
+		void OnBeginFrame() override;
+		void OnEndFrame() override;
+
+		void PrepFontDraw();
+	private:
+		ComPtr<ID3D11InputLayout> m_pFontInputLayout;
+
+		ComPtr<ID3D11DepthStencilState> m_pDepthStencilState;
+		ComPtr<ID3D11BlendState> m_pBlendState;
+
+		Graphics::ShaderId m_fontVS;
+		Graphics::ShaderId m_fontPS;
+	};
 }
 
 namespace Play3d::UI
@@ -2714,6 +2903,9 @@ namespace Play3d::UI
 	void DrawPrintf(FontId hFont, const Vector2f& position, ColourValue colour, const char* fmt, ...);
 	void DrawString(FontId hFont, const Vector2f& position, ColourValue colour, std::string_view text);
 	bool DrawButton(Sprite::SpriteAtlasId hAtlas, Graphics::TextureId texture, u32 index);
+	void DrawCharacterArray(FontId hFont, const Vector2f& position, const char* pCharArray,
+							const ColourValue* pColourArray, u32 lines, u32 columns);
+
 }
 
 //--------------------------------------------- System/SystemApi.h ---------------------------------------------
@@ -2752,23 +2944,147 @@ namespace Play3d
 		//! Uses a high precision clock internally.
 		f64 GetElapsedTime();
 
+		//! @brief Loads in a PackFile for Play3D
+		void AddPackFile(const char* filePath);
+
 		//! @brief Returns the elapsed time since the previous frame in seconds.
 		//! Uses a high precision clock internally.
 		f32 GetDeltaTime();
 
-		//! @brief Checks if a file exists with the specified path.
+		//! @brief Checks if a file exists with the specified path in both packed files or on disk.
 		bool CheckFileExists(const char* filePath);
+
+		//! @brief Checks if a file exists with the specified path on disk.
+		bool CheckFileExistsOnDisk(const char* filePath);
 
 		//! @brief Loads an entire file into memory returning it's size and a pointer loaded data.
 		//! @param filePath : Path to the file.
 		//! @param sizeOut : returns the size in bytes of the loaded data.
 		//! @return a pointer to the loaded data. Use ReleaseFileData to free this memory.
-		void* LoadFileData(const char* filePath, size_t& sizeOut);
+		const void* LoadFileData(const char* filePath, size_t& sizeOut);
 
 		//! @brief Releases memory allocated by LoadFileData .
 		//! @param pMemory : a pointer returned by LoadFileData.
-		void ReleaseFileData(void* pMemory);
+		void ReleaseFileData(const void* pMemory);
 	}
+}
+
+//------------------------------------------ System/ServiceLocator.h ------------------------------------------
+
+namespace Play3d
+{
+	template <typename T>
+	class ServiceLocator
+	{
+		ServiceLocator() = delete;
+		~ServiceLocator() = delete;
+
+	public:
+		template <typename... Args>
+		static T& Initialise(Args... args)
+		{
+			if (!s_pService)
+			{
+				s_pService = new T(std::forward<Args>(args)...);
+				PLAY_ASSERT(s_pService);
+			}
+			return *s_pService;
+		}
+
+		static void Shutdown()
+		{
+			if (s_pService)
+			{
+				delete s_pService;
+				s_pService = nullptr;
+			}
+		}
+
+		static T& Get()
+		{
+			PLAY_ASSERT(s_pService);
+			return *s_pService;
+		}
+
+		static T* GetPtr() { return s_pService; }
+
+		static bool IsValid() { return s_pService != nullptr; }
+
+		static bool IsInvalid() { return !IsValid(); }
+
+	private:
+		inline static T* s_pService = nullptr;
+	};
+}
+
+#define PLAY_SERVICE_LOCATOR_ONLY(classname)                                                                           \
+	PLAY_NONCOPYABLE(classname)                                                                                        \
+	friend class Play3d::ServiceLocator<classname>;
+//--------------------------------------------- System/Packfile.h ---------------------------------------------
+
+namespace Play3d::Packfile
+{
+
+	struct PackedFileHeader
+	{
+		size_t dataBlockOffset;
+		size_t dataBlockSize;
+		size_t dirBlockOffset;
+		size_t dirEntryCount;
+	};
+
+	struct PackedFileEntry
+	{
+		static constexpr size_t PLAY_MAX_PATH_LENGTH = 256;
+		char path[PLAY_MAX_PATH_LENGTH];
+		size_t offset;
+		size_t dataSize;
+	};
+
+	class PackedFile
+	{
+	public:
+		PackedFile(const void* pData, size_t sizeBytes);
+
+		~PackedFile();
+
+		const void* GetFile(const char* pFilePath, size_t& sizeBytes);
+
+		const size_t GetNumberOfFilesInPackFile();
+
+		const PackedFileEntry* GetFileInfoAtIndex(size_t index);
+
+		bool CheckPointerIsInPack(const void* ptr);
+
+	private:
+		const void* m_pRawData = nullptr;
+		const PackedFileHeader* m_pHeader = nullptr;
+		const PackedFileEntry* m_pDirBlock = nullptr;
+		const uint8_t* m_pDataBlock = nullptr;
+		size_t m_totalSizeBytes = 0;
+	};
+
+	class PackedFileManager
+	{
+		PLAY_NONCOPYABLE(PackedFileManager);
+
+		PackedFileManager() = default;
+		~PackedFileManager();
+
+	public:
+		static PackedFileManager& Instance() { return *ms_pInstance; }
+		static void Initialise();
+		static void Destroy();
+		void AddPackFile(const char* pFilePath);
+		const void* FindFile(const char* pFilePath, size_t& sizeBytes);
+		bool CheckPointerIsInPack(const void* ptr);
+
+	private:
+		static PackedFileManager* ms_pInstance;
+
+		std::vector<PackedFile*> m_packedFiles;
+	};
+
 }
 
 //----------------------------------------------- Demo/DemoApi.h -----------------------------------------------
@@ -2822,9 +3138,12 @@ namespace Play3d::Demo
 #include <cstdarg>
 #include <cstdio>
 #include <windows.h>
+#include <format>
 #include <charconv>
 #include <d3dcompiler.h>
 #include <Xinput.h>
+#include <cstdint>
+#include <cstring>
 //--------------------------------------------------------------------------------------------------------------
 
 //--------------------------------------------- Audio/AudioApi.cpp ---------------------------------------------
@@ -2849,6 +3168,8 @@ namespace Play3d::Audio
 		VoiceId PlaySound(SoundId soundId, f32 fGain, f32 fPan);
 
 		void StopSound(VoiceId voiceId);
+
+		IXAudio2* GetDevice();
 
 	private:
 		u32 AllocateVoice();
@@ -2893,16 +3214,17 @@ namespace Play3d::Audio
 
 namespace Play3d::Audio
 {
-	SoundId LoadSoundFromFile(const char* filePath)
+	SoundId LoadSoundFromFile(const char* filePath, bool bEnableLooping)
 	{
 		SoundId soundId;
 		size_t sizeBytes;
-		void* pData = System::LoadFileData(filePath, sizeBytes);
+		const void* pData = System::LoadFileData(filePath, sizeBytes);
 		if (pData)
 		{
 			SoundDesc desc;
 			desc.m_pData = pData;
 			desc.m_sizeBytes = sizeBytes;
+			desc.m_bLoop = bEnableLooping;
 			soundId = Resources::CreateAsset<Sound>(desc);
 		}
 		return soundId;
@@ -2917,6 +3239,12 @@ namespace Play3d::Audio
 	{
 		return Audio_Impl::Instance().StopSound(voiceId);
 	}
+
+	void* GetAudioDevice()
+	{
+		return Audio_Impl::Instance().GetDevice();
+	}
+
 }
 
 //-------------------------------------------- Audio/Audio_Impl.cpp --------------------------------------------
@@ -2934,20 +3262,40 @@ namespace Play3d::Audio
 		hr = XAudio2Create(&m_pXAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
 		PLAY_ASSERT_MSG(SUCCEEDED(hr), "Failed XAudio create.");
 
+#ifdef _DEBUG
+		XAUDIO2_DEBUG_CONFIGURATION debugConfig = {};
+		debugConfig.TraceMask = XAUDIO2_LOG_ERRORS;
+		debugConfig.BreakMask = XAUDIO2_LOG_ERRORS;
+		debugConfig.LogThreadID = TRUE;
+		debugConfig.LogFileline = TRUE;
+		debugConfig.LogFunctionName = TRUE;
+		debugConfig.LogTiming = TRUE;
+		m_pXAudio2->SetDebugConfiguration(&debugConfig, NULL);
+#endif
+
 		hr = m_pXAudio2->CreateMasteringVoice(&m_pMasterVoice);
 		PLAY_ASSERT_MSG(SUCCEEDED(hr), "Failed XAudio create master voice.");
 	}
 
 	Audio_Impl::~Audio_Impl()
 	{
+		for (InternalVoice& it : m_voices)
+		{
+			if(it.m_pVoice)
+				it.m_pVoice->DestroyVoice();
+			PLAY_SAFE_DELETE(it.m_pCallback);
+		}
+
 		if (m_pMasterVoice)
 		{
 			m_pMasterVoice->DestroyVoice();
 		}
 
-		for (InternalVoice& it : m_voices)
+		if (m_pXAudio2)
 		{
-			PLAY_SAFE_DELETE(it.m_pCallback);
+			m_pXAudio2->StopEngine();
+			Sleep(1000);
+			m_pXAudio2.Reset();
 		}
 	}
 
@@ -3048,6 +3396,12 @@ namespace Play3d::Audio
 	{
 		m_freelist.push_back(slot);
 	}
+
+	IXAudio2* Audio_Impl::GetDevice()
+	{
+		return m_pXAudio2.Get();
+	}
+
 }
 
 //---------------------------------------------- Audio/Sound.cpp ----------------------------------------------
@@ -3116,6 +3470,10 @@ namespace Play3d
 			m_buffer.AudioBytes = static_cast<u32>(m_sizeBytes);
 			m_buffer.pAudioData = static_cast<const BYTE*>(m_pData);
 			m_buffer.Flags = XAUDIO2_END_OF_STREAM;
+
+			m_buffer.LoopBegin = 0u;
+			m_buffer.LoopLength = 0u;
+			m_buffer.LoopCount = rDesc.m_bLoop ? XAUDIO2_LOOP_INFINITE : 0;
 		}
 
 		Sound::~Sound()
@@ -3263,27 +3621,27 @@ namespace Play3d::Demo
 
 		if (Input::IsKeyDown('W'))
 		{
-			vDelta.z += 5;
+			vDelta.z += 1;
 		}
 		if (Input::IsKeyDown('S'))
 		{
-			vDelta.z += -5;
+			vDelta.z += -1;
 		}
 		if (Input::IsKeyDown('A'))
 		{
-			vDelta.x += 5;
+			vDelta.x += 1;
 		}
 		if (Input::IsKeyDown('D'))
 		{
-			vDelta.x += -5;
+			vDelta.x += -1;
 		}
 		if (Input::IsKeyDown('E'))
 		{
-			vDelta.y += -5;
+			vDelta.y += -1;
 		}
 		if (Input::IsKeyDown('Q'))
 		{
-			vDelta.y += 5;
+			vDelta.y += 1;
 		}
 
 		s_demoState.m_eyePosition += s_demoState.m_vForward * vDelta.z * dT * kfSpeed;
@@ -3382,6 +3740,7 @@ namespace Play3d::Graphics
 		ColourValue colour;
 	};
 
+	//! @brief Collects individual points, lines and triangles into a batch of primitives
 	class PrimitiveBatch
 	{
 	public:
@@ -3416,6 +3775,33 @@ namespace Play3d::Graphics
 		u32 m_lineVertexCount;
 		u32 m_triangleVertexCount;
 	};
+
+	//! @brief Manages the allocation and rendering of primitive batches.
+	class PrimitiveRenderSystem : public IGraphicsCallbacks
+	{
+		PLAY_SINGLETON_INTERFACE(PrimitiveRenderSystem);
+	public:
+		PrimitiveRenderSystem();
+		~PrimitiveRenderSystem();
+		void OnBeginFrame() override;
+		void OnEndFrame() override;
+
+		PrimitiveBatch* AllocatePrimitiveBatch();
+		void DrawPrimitiveBatch(PrimitiveBatch* pBatch);
+
+	private:
+		std::vector<PrimitiveBatch*> m_primitiveBatchRing;
+		ComPtr<ID3D11InputLayout> m_pPrimitiveInputLayout;
+
+		ComPtr<ID3D11RasterizerState> m_pRasterState;
+		ComPtr<ID3D11DepthStencilState> m_pDepthStencilState;
+		ComPtr<ID3D11BlendState> m_pBlendState;
+
+		ShaderId m_primitiveBatchVS;
+		ShaderId m_primitiveBatchPS;
+		u32 m_nNextPrimitiveBatch;
+	};
+
 }
 
 //------------------------------------ Graphics/ShaderConstantBuffer_Impl.h ------------------------------------
@@ -3428,7 +3814,9 @@ namespace Play3d::Graphics
 	public:
 		ShaderConstantBuffer_Impl()
 			: m_bIsDirty(false)
-		{}
+		{
+			memset(&m_cpuData, 0, sizeof(T));
+		}
 		void Init(ID3D11Device* pDevice)
 		{
 			D3D11_BUFFER_DESC desc = {};
@@ -3481,7 +3869,7 @@ namespace Play3d::Graphics
 	private:
 		T m_cpuData;
 		ComPtr<ID3D11Buffer> m_pBuffer;
-		bool m_bIsDirty;
+		bool m_bIsDirty = false;
 	};
 }
 
@@ -3516,14 +3904,15 @@ namespace Play3d::Graphics
 		PLAY_NONCOPYABLE(Graphics_Impl);
 
 	public:
-		using WindowCallback = std::function<int(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)>;
-
 		static Graphics_Impl& Instance() { return *ms_pInstance; }
 		static void Initialise(const SystemDesc& rDesc);
 		static void Destroy();
 
 		result_t PostInitialise();
 		result_t BeginFrame();
+
+		void ClearStateCache();
+
 		result_t EndFrame();
 
 		void Flush();
@@ -3534,9 +3923,7 @@ namespace Play3d::Graphics
 		ID3D11Device* GetDevice() const { return m_pDevice.Get(); }
 		ID3D11DeviceContext* GetDeviceContext() const { return m_pDeviceContext.Get(); }
 
-		PrimitiveBatch* AllocatePrimitiveBatch();
-
-		void DrawPrimitveBatch(PrimitiveBatch* pBatch);
+		void SetFullscreenMode(bool bEnable);
 
 		void DrawMesh(const Mesh* pMesh, u32 elementOffset, u32 elementCount);
 
@@ -3544,6 +3931,8 @@ namespace Play3d::Graphics
 							   u32 elementCount);
 
 		void DrawWithoutVertices(u32 elements);
+
+		void DrawIndirectWithoutVertices(BufferId hArgBuffer, u32 offset);
 
 		void SetViewport(const Viewport& v);
 
@@ -3557,9 +3946,13 @@ namespace Play3d::Graphics
 
 		void SetMaterial(MaterialId materialId);
 
+		void BindActiveMaterial(ID3D11DeviceContext* pDC);
+
 		void UpdateMaterialConstants(MaterialId materialId, const void* pData, size_t size);
 
 		void UpdateBuffer(BufferId bufferId, const void* pData, size_t size);
+
+		void UpdateTexture(TextureId textureId, u32 mipId, u32 sliceId, const void* pData, size_t rowPitchBytes);
 
 		void BindGlobalTexture(u32 slot, TextureId textureId, SamplerId samplerId, ShaderStageFlag::Type stageBinding);
 
@@ -3569,9 +3962,15 @@ namespace Play3d::Graphics
 
 		void BindGlobalBufferUAV(u32 slot, BufferId bufferId, ShaderStageFlag::Type stageBinding);
 
+		void BindFrameConstants();
+
+		void BindUIFrameConstants();
+
 		TextureId GetTransientSurface(SurfaceSize surfaceSize, TextureFormat format);
 
 		SurfaceSize GetDisplaySurfaceSize() const;
+
+		SurfaceSize GetRenderTargetSize() const;
 
 		void SetRenderTargets(const TextureId* colourTargetIdArray, u32 mrtCount, TextureId depthTextureId);
 
@@ -3582,8 +3981,6 @@ namespace Play3d::Graphics
 		void ClearDepthTarget(TextureId textureId, f32 depthValue);
 
 		void ClearRenderTarget(TextureId textureId, ColourValue clearColour);
-
-		void TempPrepFontDraw();
 
 		ShaderId GetMaterialShader(MaterialShaderKey key);
 
@@ -3601,12 +3998,21 @@ namespace Play3d::Graphics
 
 		void RegisterWindowCallback(WindowCallback callback);
 
+		void RegisterGraphicsCallbacks(IGraphicsCallbacks* pCallbacks);
+
 		result_t LoadImageAsRGBA(const char* pFilePath, std::vector<u8>& imageOut, SurfaceSize& surfaceSizeOut);
 
 		void BindComputeShader(ShaderId shaderId);
 
 		void Dispatch(u32 groupCountX, u32 groupCountY, u32 groupCountZ);
 
+		void UpdateConstantBuffers();
+
+		float GetGPUFrameTime() const { return m_gpuFrameTimeMS; }
+
+		void PushMarker(const char* name);
+
+		void PopMarker();
 	private:
 		Graphics_Impl(const SystemDesc& rDesc);
 		~Graphics_Impl();
@@ -3616,6 +4022,8 @@ namespace Play3d::Graphics
 		result_t ReleaseWindow();
 
 		result_t InitDirectX();
+
+		result_t InitTimestamps();
 
 		result_t RecreateRenderTargetView();
 
@@ -3631,21 +4039,21 @@ namespace Play3d::Graphics
 
 		bool UpdateMessageLoop();
 
-		void UpdateConstantBuffers();
-
 		void InternalBindMaterial(Material* pMaterial, ID3D11DeviceContext* pDC);
+
+		void InternalBindMesh(const Mesh* pMesh, ID3D11DeviceContext* pDC);
 
 		result_t Resize(u32 width, u32 height);
 
 		static LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-
 	private:
 		static Graphics_Impl* ms_pInstance;
 
-		HINSTANCE m_hInstance;
-		HWND m_hWnd;
+		HINSTANCE m_hInstance = NULL;
+		HWND m_hWnd = NULL;
 
 		std::vector<WindowCallback> m_wndCallbacks;
+		std::vector<IGraphicsCallbacks*> m_graphicsCallbacks;
 
 		ComPtr<ID3D11Device> m_pDevice;
 		ComPtr<ID3D11DeviceContext> m_pDeviceContext;
@@ -3658,10 +4066,8 @@ namespace Play3d::Graphics
 		ComPtr<ID3D11RenderTargetView> m_pBackBufferRTV;
 		ComPtr<ID3D11DepthStencilView> m_pDefaultDSV;
 
-		ComPtr<ID3D11InputLayout> m_pPrimitiveInputLayout;
 		ComPtr<ID3D11InputLayout> m_pMeshInputLayout;
 		ComPtr<ID3D11InputLayout> m_pSkinnedMeshInputLayout;
-		ComPtr<ID3D11InputLayout> m_pFontInputLayout;
 
 		struct FrameConstantData
 		{
@@ -3673,6 +4079,7 @@ namespace Play3d::Graphics
 			alignas(16) Vector4f viewPosition;
 			alignas(16) float time[4];
 		};
+
 		ShaderConstantBuffer_Impl<FrameConstantData> m_frameConstants;
 
 		struct DrawConstantData
@@ -3701,16 +4108,18 @@ namespace Play3d::Graphics
 		};
 		ShaderConstantBuffer_Impl<UIFrameConstantData> m_uiFrameConstants;
 
-		u32 m_nSurfaceWidth;
-		u32 m_nSurfaceHeight;
+		u32 m_nSurfaceWidth = 0;
+		u32 m_nSurfaceHeight = 0;
 
-		ShaderId m_primitiveBatchVS;
-		ShaderId m_primitiveBatchPS;
-		ShaderId m_fontVS;
-		ShaderId m_fontPS;
+		u32 m_nRenderTargetWidth = 0;
+		u32 m_nRenderTargetHeight = 0;
+
 		ShaderId m_meshShaders[MaterialShaderKey::kPermutations];
+		ShaderId m_skinnedMeshVS;
 
 		MaterialId m_activeMaterial;
+		Material* m_pPrevMaterial = nullptr;
+		const Mesh* m_pPrevMesh = nullptr;
 
 		ComPtr<ID3D11RasterizerState> m_pFallbackRasterState;
 		ComPtr<ID3D11DepthStencilState> m_pFallbackDepthStencilState;
@@ -3718,9 +4127,6 @@ namespace Play3d::Graphics
 		ComPtr<ID3D11BlendState> m_pBlendStateOpaque;
 		ComPtr<ID3D11BlendState> m_pBlendStateAdditive;
 		ComPtr<ID3D11BlendState> m_pBlendStateAlphaBlend;
-
-		std::vector<PrimitiveBatch*> m_primitiveBatchRing;
-		u32 m_nNextPrimitiveBatch;
 
 		std::vector<ID3D11ShaderResourceView*> m_mipQueue;
 
@@ -3758,7 +4164,14 @@ namespace Play3d::Graphics
 		};
 
 		std::vector<TransientSurface> m_transientSurfaces;
-		u64 m_frameTimestamp;
+
+		ComPtr<ID3D11Query> m_pGPUBeginFrameTime;
+		ComPtr<ID3D11Query> m_pGPUEndFrameTime;
+		ComPtr<ID3D11Query> m_pGPUDisjointQuery;
+		ComPtr<ID3DUserDefinedAnnotation> m_pAnnotation;
+
+		u64 m_frameTimestamp = 0;
+		f32 m_gpuFrameTimeMS = 0.f;
 	};
 };
 
@@ -3770,7 +4183,8 @@ namespace Play3d::Graphics
 															 D3D11_BIND_FLAG::D3D11_BIND_VERTEX_BUFFER,
 															 D3D11_BIND_FLAG::D3D11_BIND_INDEX_BUFFER,
 															 D3D11_BIND_FLAG::D3D11_BIND_SHADER_RESOURCE,
-															 D3D11_BIND_FLAG::D3D11_BIND_UNORDERED_ACCESS};
+															 D3D11_BIND_FLAG::D3D11_BIND_UNORDERED_ACCESS,
+		};
 
 		UINT ret = 0;
 		for (u32 i = 0; i < BufferBindFlags::kMaxBits; ++i)
@@ -3809,15 +4223,20 @@ namespace Play3d::Graphics
 		desc.CPUAccessFlags = 0;
 		if (rDesc.m_flags & BufferFlags::DYNAMIC)
 		{
-			desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			desc.CPUAccessFlags |= D3D11_CPU_ACCESS_WRITE;
 		}
 
 		desc.MiscFlags = 0;
 		desc.StructureByteStride = 0;
 		if (rDesc.m_flags & BufferFlags::STRUCTURED)
 		{
-			desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+			desc.MiscFlags |= D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 			desc.StructureByteStride = rDesc.m_structureStrideBytes;
+		}
+
+		if (rDesc.m_flags & BufferFlags::INDIRECT_ARGS)
+		{
+			desc.MiscFlags |= D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
 		}
 
 		D3D11_SUBRESOURCE_DATA data = {};
@@ -3825,6 +4244,16 @@ namespace Play3d::Graphics
 
 		HRESULT hr = pDevice->CreateBuffer(&desc, rDesc.m_pInitialData ? &data : nullptr, &m_pBuffer);
 		PLAY_ASSERT(SUCCEEDED(hr));
+
+		if (rDesc.m_pDebugName)
+		{
+			m_pBuffer->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(rDesc.m_pDebugName), rDesc.m_pDebugName);
+		}
+	}
+
+	ID3D11Buffer* Buffer::GetBuffer()
+	{
+		return m_pBuffer.Get();
 	}
 
 	ID3D11ShaderResourceView* Buffer::GetSRV()
@@ -3850,6 +4279,7 @@ namespace Play3d::Graphics
 
 		return m_pUAV.Get();
 	}
+
 }
 
 //------------------------------------------ Graphics/GraphicsApi.cpp ------------------------------------------
@@ -3923,7 +4353,7 @@ namespace Play3d::Graphics
 	{
 		if (!s_internalState.m_pCurrentPrimitiveBatch)
 		{
-			s_internalState.m_pCurrentPrimitiveBatch = Graphics_Impl::Instance().AllocatePrimitiveBatch();
+			s_internalState.m_pCurrentPrimitiveBatch = PrimitiveRenderSystem::Instance().AllocatePrimitiveBatch();
 		}
 	}
 
@@ -3977,7 +4407,7 @@ namespace Play3d::Graphics
 	{
 		if (s_internalState.m_pCurrentPrimitiveBatch)
 		{
-			Graphics_Impl::Instance().DrawPrimitveBatch(s_internalState.m_pCurrentPrimitiveBatch);
+			PrimitiveRenderSystem::Instance().DrawPrimitiveBatch(s_internalState.m_pCurrentPrimitiveBatch);
 			s_internalState.m_pCurrentPrimitiveBatch = nullptr;
 		}
 	}
@@ -4012,6 +4442,11 @@ namespace Play3d::Graphics
 		Graphics_Impl::Instance().DrawWithoutVertices(elements);
 	}
 
+	void DrawIndirectWithoutVertices(BufferId hArgBuffer, u32 offset)
+	{
+		Graphics_Impl::Instance().DrawIndirectWithoutVertices(hArgBuffer, offset);
+	}
+
 	void SetMaterial(MaterialId materialId)
 	{
 		Graphics_Impl::Instance().SetMaterial(materialId);
@@ -4020,6 +4455,12 @@ namespace Play3d::Graphics
 	void UpdateMaterialConstants(MaterialId materialId, const void* pData, size_t size)
 	{
 		Graphics_Impl::Instance().UpdateMaterialConstants(materialId, pData, size);
+	}
+
+	void UpdateTexture(TextureId textureId, u32 mipId, u32 sliceId, const void* pData, size_t rowPitchBytes)
+	{
+		PLAY_ASSERT(pData && rowPitchBytes > 0);
+		Graphics_Impl::Instance().UpdateTexture(textureId, mipId, sliceId, pData, rowPitchBytes);
 	}
 
 	void BindGlobalTexture(u32 slot, TextureId textureId, SamplerId samplerId, ShaderStageFlag::Type stageBinding)
@@ -4086,6 +4527,18 @@ namespace Play3d::Graphics
 		builder.AddVertex(Vector3f(fHalfSizeX, 0, -fHalfSizeZ), Vector3f(0, 1, 0), Vector2f(fUVScale, 0), colour);
 		builder.AddVertex(Vector3f(fHalfSizeX, 0, fHalfSizeZ), Vector3f(0, 1, 0), Vector2f(fUVScale, fUVScale), colour);
 		builder.AddVertex(Vector3f(-fHalfSizeX, 0, fHalfSizeZ), Vector3f(0, 1, 0), Vector2f(0, fUVScale), colour);
+		builder.AddQuad(0, 1, 2, 3);
+		builder.GenerateTangents();
+		return builder.CreateMesh();
+	}
+
+	MeshId CreatePlaneXY(f32 fWidthX, f32 fHeightY, ColourValue colour /*= Colour::White*/, f32 fUVScale /*= 1.0f*/)
+	{
+		MeshBuilder builder;
+		builder.AddVertex(Vector3f(0, 0, 0), Vector3f(0, 1, 0), Vector2f(0, 0), colour);
+		builder.AddVertex(Vector3f(fWidthX, 0, 0), Vector3f(0, 1, 0), Vector2f(fUVScale, 0), colour);
+		builder.AddVertex(Vector3f(fWidthX, fHeightY, 0), Vector3f(0, 1, 0), Vector2f(fUVScale, fUVScale), colour);
+		builder.AddVertex(Vector3f(0, fHeightY, 0), Vector3f(0, 1, 0), Vector2f(0, fUVScale), colour);
 		builder.AddQuad(0, 1, 2, 3);
 		builder.GenerateTangents();
 		return builder.CreateMesh();
@@ -4310,30 +4763,11 @@ namespace Play3d::Graphics
 		MeshBuilder builder;
 		result_t result = RESULT_FAIL;
 
-		HANDLE hFile = CreateFileA(filePath,
-								   GENERIC_READ,
-								   FILE_SHARE_READ | FILE_SHARE_WRITE,
-								   NULL,
-								   OPEN_EXISTING,
-								   FILE_ATTRIBUTE_NORMAL,
-								   NULL);
-		if (hFile != INVALID_HANDLE_VALUE)
+		size_t sizeBytes = 0;
+		const void* pFileData = System::LoadFileData(filePath, sizeBytes);
+		if (pFileData && sizeBytes)
 		{
-			LARGE_INTEGER size;
-			if (GetFileSizeEx(hFile, &size))
-			{
-				constexpr u32 kPadding = 16;
-				char* pBuffer = new char[size.LowPart + kPadding];
-				pBuffer[0] = '\0';
-				memset(pBuffer + size.LowPart, 0, kPadding);
-
-				DWORD bytesRead = 0;
-				if (ReadFile(hFile, pBuffer, size.LowPart, &bytesRead, NULL))
-				{
-					result = builder.ParseObjFormat(std::string_view(pBuffer, bytesRead), colour, fScale);
-				}
-			}
-			CloseHandle(hFile);
+			result = builder.ParseObjFormat(std::string_view(static_cast<const char*>(pFileData), sizeBytes), colour, fScale);
 		}
 
 		if (RESULT_OK == result)
@@ -4371,7 +4805,7 @@ namespace Play3d::Graphics
 		return id;
 	}
 
-	TextureId CreateTextureFromFile(const char* pFilePath)
+	TextureId CreateTextureFromFile(const char* pFilePath, bool bGenerateMipLevels)
 	{
 		TextureId textureId;
 
@@ -4386,6 +4820,12 @@ namespace Play3d::Graphics
 			desc.m_height = surfaceSize.m_height;
 			desc.m_format = TextureFormat::RGBA;
 			desc.m_pImageData = imageData.data();
+			desc.m_pDebugName = pFilePath;
+			desc.m_flags = TextureFlags::ENABLE_TEXTURE;
+			if (bGenerateMipLevels)
+			{
+				desc.m_flags |= TextureFlags::GENERATE_MIPS;
+			}
 			textureId = Resources::CreateAsset<Texture>(desc);
 		}
 
@@ -4432,7 +4872,7 @@ namespace Play3d::Graphics
 	{
 		SamplerDesc desc;
 		desc.m_filter = FilterMode::BILINEAR;
-		desc.m_addressMode = AddressMode::WRAP;
+		desc.SetUniformAddressMode(AddressMode::WRAP);
 		return Resources::CreateAsset<Graphics::Sampler>(desc);
 	}
 
@@ -4440,7 +4880,7 @@ namespace Play3d::Graphics
 	{
 		SamplerDesc desc;
 		desc.m_filter = FilterMode::POINT;
-		desc.m_addressMode = AddressMode::WRAP;
+		desc.SetUniformAddressMode(AddressMode::WRAP);
 		return Resources::CreateAsset<Graphics::Sampler>(desc);
 	}
 
@@ -4456,6 +4896,36 @@ namespace Play3d::Graphics
 		Graphics_Impl::Instance().Dispatch(groupCountX, groupCountY, groupCountZ);
 	}
 
+	float GetGPUFrameTime()
+	{
+		return Graphics_Impl::Instance().GetGPUFrameTime();
+	}
+
+	void PushMarker(const char* name)
+	{
+		Graphics_Impl::Instance().PushMarker(name);
+	}
+
+	void PopMarker()
+	{
+		Graphics_Impl::Instance().PopMarker();
+	}
+
+	void RegisterWindowCallback(WindowCallback callback)
+	{
+		Graphics_Impl::Instance().RegisterWindowCallback(callback);
+	}
+
+	HWND GetWindowHandle()
+	{
+		return Graphics_Impl::Instance().GetHWnd();
+	}
+
+	void SetFullscreenMode(bool bEnable)
+	{
+		return Graphics_Impl::Instance().SetFullscreenMode(bEnable);
+	}
+
 }
 
 //----------------------------------------- Graphics/Graphics_Impl.cpp -----------------------------------------
@@ -4467,6 +4937,8 @@ namespace Play3d::Graphics
 extern const char* HLSL_FontShader;
 extern const char* HLSL_MeshShader;
 extern const char* HLSL_PrimitiveBatchShader;
+extern const char* HLSL_SkinnedMeshShader;
+extern const char* HLSL_SpriteBatchShader;
 extern const char* HLSL_StandardMacros;
 
 }
@@ -4531,7 +5003,6 @@ namespace Play3d::Graphics
 		, m_hWnd(NULL)
 		, m_nSurfaceWidth(0)
 		, m_nSurfaceHeight(0)
-		, m_nNextPrimitiveBatch(0)
 		, m_frameTimestamp(0)
 		, m_defaultRenderTargetClearColour{0.0f, 0.0f, 0.0f, 1.0f}
 	{
@@ -4541,11 +5012,6 @@ namespace Play3d::Graphics
 
 	Graphics_Impl::~Graphics_Impl()
 	{
-		for (auto& it : m_primitiveBatchRing)
-		{
-			PLAY_SAFE_DELETE(it);
-		}
-
 		Flush();
 		ReleaseWindow();
 	}
@@ -4569,6 +5035,8 @@ namespace Play3d::Graphics
 	{
 		++m_frameTimestamp;
 
+		ClearStateCache();
+
 		FrameConstantData& t(m_frameConstants.Get());
 		t.time[0] = (float)System::GetElapsedTime();
 		t.time[1] = System::GetDeltaTime();
@@ -4584,16 +5052,21 @@ namespace Play3d::Graphics
 			return false;
 		};
 
-		m_transientSurfaces.erase(
-			std::remove_if(m_transientSurfaces.begin(), m_transientSurfaces.end(), surfaceRemoveLambda),
-			m_transientSurfaces.end());
+		m_transientSurfaces.erase(std::remove_if(m_transientSurfaces.begin(), m_transientSurfaces.end(), surfaceRemoveLambda),
+								  m_transientSurfaces.end());
 
 		bool bQuit = UpdateMessageLoop();
 
+		m_pDeviceContext->End(m_pGPUBeginFrameTime.Get());
+		m_pDeviceContext->Begin(m_pGPUDisjointQuery.Get());
+
+		PushMarker("Generate Mipmaps");
 		for (auto pSRV : m_mipQueue)
 		{
 			m_pDeviceContext->GenerateMips(pSRV);
 		}
+		PopMarker();
+
 		m_mipQueue.clear();
 
 		f32 fClearColour[] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -4615,18 +5088,55 @@ namespace Play3d::Graphics
 
 		m_uiFrameConstants.UpdateGPU(m_pDeviceContext.Get());
 
-		m_nNextPrimitiveBatch = 0;
+		for (IGraphicsCallbacks* pCallbacks : m_graphicsCallbacks)
+		{
+			pCallbacks->OnBeginFrame();
+		}
 
 		if (bQuit)
 		{
 			return RESULT_QUIT;
 		}
+
 		return RESULT_OK;
 	}
 
 	result_t Graphics_Impl::EndFrame()
 	{
+		for (IGraphicsCallbacks* pCallbacks : m_graphicsCallbacks)
+		{
+			pCallbacks->OnEndFrame();
+		}
+
+		m_pDeviceContext->End(m_pGPUEndFrameTime.Get());
+
 		m_pSwapChain->Present(1, 0);
+
+		m_pDeviceContext->End(m_pGPUDisjointQuery.Get());
+
+		D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData;
+		while (m_pDeviceContext->GetData(m_pGPUDisjointQuery.Get(), NULL, 0, 0) == S_FALSE)
+		{
+		}
+		m_pDeviceContext->GetData(m_pGPUDisjointQuery.Get(), &disjointData, sizeof(disjointData), 0);
+		if (disjointData.Disjoint)
+		{
+			m_gpuFrameTimeMS = 0.f;
+			return RESULT_OK;
+		}
+
+		UINT64 beginTS, endTS;
+		while (m_pDeviceContext->GetData(m_pGPUBeginFrameTime.Get(), NULL, 0, 0) == S_FALSE)
+		{
+		}
+		m_pDeviceContext->GetData(m_pGPUBeginFrameTime.Get(), &beginTS, sizeof(UINT64), 0);
+
+		while (m_pDeviceContext->GetData(m_pGPUEndFrameTime.Get(), NULL, 0, 0) == S_FALSE)
+		{
+		}
+		m_pDeviceContext->GetData(m_pGPUEndFrameTime.Get(), &endTS, sizeof(UINT64), 0);
+		m_gpuFrameTimeMS = float(endTS - beginTS) / float(disjointData.Frequency) * 1000.0f;
+
 		return RESULT_OK;
 	}
 
@@ -4637,72 +5147,6 @@ namespace Play3d::Graphics
 			m_pDeviceContext->ClearState();
 			m_pDeviceContext->Flush();
 		}
-	}
-
-	PrimitiveBatch* Graphics_Impl::AllocatePrimitiveBatch()
-	{
-		PrimitiveBatch* pBatch = nullptr;
-		if (m_nNextPrimitiveBatch < m_primitiveBatchRing.size())
-		{
-			pBatch = m_primitiveBatchRing[m_nNextPrimitiveBatch];
-			++m_nNextPrimitiveBatch;
-		}
-		else
-		{
-			pBatch = new PrimitiveBatch(m_pDevice.Get(), 0x10000);
-			m_primitiveBatchRing.push_back(pBatch);
-			++m_nNextPrimitiveBatch;
-		}
-		PLAY_ASSERT(pBatch);
-		return pBatch;
-	}
-
-	void Graphics_Impl::DrawPrimitveBatch(PrimitiveBatch* pBatch)
-	{
-		PLAY_ASSERT(pBatch);
-
-		UpdateConstantBuffers();
-
-		ID3D11DeviceContext* pDC = m_pDeviceContext.Get();
-		pDC->OMSetBlendState(m_pBlendStateAlphaBlend.Get(), NULL, 0xffffffff);
-		pDC->OMSetDepthStencilState(m_pFallbackDepthStencilState.Get(), 0);
-
-		pBatch->Flush(pDC);
-
-		Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_primitiveBatchVS);
-		Shader* pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_primitiveBatchPS);
-
-		pDC->IASetInputLayout(m_pPrimitiveInputLayout.Get());
-
-		pVS->Bind(pDC);
-		pPS->Bind(pDC);
-
-		pBatch->Bind(pDC);
-
-		m_frameConstants.Bind(pDC, 0);
-
-		pBatch->DrawPoints(pDC);
-		pBatch->DrawLines(pDC);
-		pBatch->DrawTriangles(pDC);
-	}
-
-	void Graphics_Impl::TempPrepFontDraw()
-	{
-		UpdateConstantBuffers();
-
-		ID3D11DeviceContext* pDC = m_pDeviceContext.Get();
-
-		pDC->OMSetBlendState(m_pBlendStateAlphaBlend.Get(), NULL, 0xffffffff);
-
-		Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_fontVS);
-		Shader* pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_fontPS);
-		pVS->Bind(pDC);
-		pPS->Bind(pDC);
-
-		pDC->IASetInputLayout(m_pFontInputLayout.Get());
-
-		m_uiFrameConstants.Bind(pDC, 0);
-
 	}
 
 	ShaderId Graphics_Impl::GetMaterialShader(MaterialShaderKey key)
@@ -4749,8 +5193,13 @@ namespace Play3d::Graphics
 		m_wndCallbacks.push_back(callback);
 	}
 
-	result_t Graphics_Impl::LoadImageAsRGBA(const char* pFilePath, std::vector<u8>& imageOut,
-											SurfaceSize& surfaceSizeOut)
+	void Graphics_Impl::RegisterGraphicsCallbacks(IGraphicsCallbacks* pCallbacks)
+	{
+		PLAY_ASSERT(pCallbacks);
+		m_graphicsCallbacks.push_back(pCallbacks);
+	}
+
+	result_t Graphics_Impl::LoadImageAsRGBA(const char* pFilePath, std::vector<u8>& imageOut, SurfaceSize& surfaceSizeOut)
 	{
 		if (!System::CheckFileExists(pFilePath))
 		{
@@ -4767,23 +5216,42 @@ namespace Play3d::Graphics
 
 		if (!pIWICFactory)
 		{
-			hr = CoCreateInstance(CLSID_WICImagingFactory,
-								  NULL,
-								  CLSCTX_INPROC_SERVER,
-								  IID_PPV_ARGS(pIWICFactory.GetAddressOf()));
+			hr = CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(pIWICFactory.GetAddressOf()));
 
 			PLAY_ASSERT(SUCCEEDED(hr));
 		}
 
-		int size = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, pFilePath, -1, nullptr, 0);
-		std::wstring wFilePath((size_t)size, 't');
-		MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, pFilePath, -1, wFilePath.data(), size);
+		size_t fileSizeBytes = 0;
+		const void* pFileData = System::LoadFileData(pFilePath, fileSizeBytes);
+		if (!pFileData)
+		{
+			Debug::Printf("ERROR: Image file load data failed! path='%s'\n", pFilePath);
+			return Result::RESULT_FAIL;
+		}
 
-		hr = pIWICFactory->CreateDecoderFromFilename(wFilePath.c_str(),
-													 NULL,
-													 GENERIC_READ,
-													 WICDecodeMetadataCacheOnDemand,
-													 pDecoder.GetAddressOf());
+		HGLOBAL hMem = ::GlobalAlloc(GMEM_MOVEABLE, fileSizeBytes);
+		if (!hMem)
+		{
+			Debug::Printf("ERROR: Failed to allocate HGLOBAL memory for image path='%s'\n", pFilePath);
+			return Result::RESULT_FAIL;
+		}
+
+		{
+			LPVOID pDest = ::GlobalLock(hMem);
+			memcpy(pDest, pFileData, fileSizeBytes);
+			::GlobalUnlock(hMem);
+		}
+
+		ComPtr<IStream> pStream;
+		hr = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+		if (FAILED(hr))
+		{
+			GlobalFree(hMem);
+			Debug::Printf("ERROR: Failed to create IStream for image path='%s'\n", pFilePath);
+			return Result::RESULT_FAIL;
+		}
+
+		hr = pIWICFactory->CreateDecoderFromStream(pStream.Get(), NULL, WICDecodeMetadataCacheOnDemand, pDecoder.GetAddressOf());
 
 		if (SUCCEEDED(hr))
 		{
@@ -4798,7 +5266,7 @@ namespace Play3d::Graphics
 		if (SUCCEEDED(hr))
 		{
 			hr = pConvertedSourceBitmap->Initialize(pFrame.Get(),
-													GUID_WICPixelFormat32bppPRGBA,
+													GUID_WICPixelFormat32bppRGBA,
 													WICBitmapDitherTypeNone,
 													NULL,
 													0.f,
@@ -4812,15 +5280,13 @@ namespace Play3d::Graphics
 			u32 sizeBytes = surfaceSizeOut.m_width * surfaceSizeOut.m_height * 4;
 			imageOut.resize(sizeBytes);
 
-			hr = pConvertedSourceBitmap->CopyPixels(NULL,
-													surfaceSizeOut.m_width * sizeof(u32),
-													sizeBytes,
-													imageOut.data());
+			hr = pConvertedSourceBitmap->CopyPixels(NULL, surfaceSizeOut.m_width * sizeof(u32), sizeBytes, imageOut.data());
 			if (SUCCEEDED(hr))
 			{
 				return Result::RESULT_OK;
 			}
 		}
+
 		return Result::RESULT_FAIL;
 	}
 
@@ -4841,72 +5307,107 @@ namespace Play3d::Graphics
 	{
 		if (pMaterial)
 		{
-			pDC->RSSetState(pMaterial->m_pRasterState.Get());
-			pDC->OMSetDepthStencilState(pMaterial->m_pDepthStencilState.Get(), 0);
-			pDC->OMSetBlendState(pMaterial->m_pBlendState.Get(), NULL, 0xffffffff);
-
-			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(pMaterial->m_VertexShader);
-			if (!pVS)
+			bool bRequiresBind = false;
+			if (pMaterial->m_bModifiedFlag)
 			{
-				pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[0]);
+				pMaterial->SetModified(false);
+				bRequiresBind = true;
 			}
-			pVS->Bind(pDC);
-
-			if (!pMaterial->m_bNullPixelShader)
+			if (m_pPrevMaterial != pMaterial)
 			{
-				Shader* pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(pMaterial->m_PixelShader);
-				if (!pPS)
+				m_pPrevMaterial = pMaterial;
+				bRequiresBind = true;
+			}
+			if (bRequiresBind)
+			{
+				pDC->RSSetState(pMaterial->m_pRasterState.Get());
+				pDC->OMSetDepthStencilState(pMaterial->m_pDepthStencilState.Get(), 0);
+				pDC->OMSetBlendState(pMaterial->m_pBlendState.Get(), NULL, 0xffffffff);
+
+				Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(pMaterial->m_VertexShader);
+				if (!pVS)
 				{
-					pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[1]);
+					pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[0]);
 				}
-				pPS->Bind(pDC);
-			}
-			else
-			{
-				pDC->PSSetShader(nullptr, nullptr, 0);
-			}
+				pVS->Bind(pDC);
 
-			ID3D11Buffer* buffers[] = {pMaterial->m_pMaterialConstants.Get()};
-			pDC->VSSetConstantBuffers(3, 1, buffers);
-
-			if (!pMaterial->m_bNullPixelShader)
-			{
-				pDC->PSSetConstantBuffers(3, 1, buffers);
-
-				ID3D11ShaderResourceView* textureBindings[kMaxMaterialTextureSlots];
-				ID3D11SamplerState* samplerBindings[kMaxMaterialTextureSlots];
-
-				for (u32 i = 0; i < kMaxMaterialTextureSlots; ++i)
+				if (!pMaterial->m_bNullPixelShader)
 				{
-					if (pMaterial->m_texture[i].IsValid())
+					Shader* pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(pMaterial->m_PixelShader);
+					if (!pPS)
 					{
-						Texture* pTexture =
-							Resources::ResourceManager<Texture>::Instance().GetPtr(pMaterial->m_texture[i]);
-						Sampler* pSampler =
-							Resources::ResourceManager<Sampler>::Instance().GetPtr(pMaterial->m_sampler[i]);
-
-						textureBindings[i] = pTexture ? pTexture->m_pSRV.Get() : nullptr;
-						samplerBindings[i] = pSampler ? pSampler->m_pSampler.Get() : nullptr;
+						pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[1]);
 					}
-					else
-					{
-						textureBindings[i] = nullptr;
-						samplerBindings[i] = nullptr;
-					}
+					pPS->Bind(pDC);
 				}
-				pDC->PSSetShaderResources(0, 4, textureBindings);
-				pDC->PSSetSamplers(0, 4, samplerBindings);
+				else
+				{
+					pDC->PSSetShader(nullptr, nullptr, 0);
+				}
+
+				ID3D11Buffer* buffers[] = {pMaterial->m_pMaterialConstants.Get()};
+				pDC->VSSetConstantBuffers(3, 1, buffers);
+
+				if (!pMaterial->m_bNullPixelShader)
+				{
+					pDC->PSSetConstantBuffers(3, 1, buffers);
+
+					ID3D11ShaderResourceView* textureBindings[kMaxMaterialTextureSlots];
+					ID3D11SamplerState* samplerBindings[kMaxMaterialTextureSlots];
+
+					for (u32 i = 0; i < kMaxMaterialTextureSlots; ++i)
+					{
+						if (pMaterial->m_texture[i].IsValid())
+						{
+							Texture* pTexture = Resources::ResourceManager<Texture>::Instance().GetPtr(pMaterial->m_texture[i]);
+							Sampler* pSampler = Resources::ResourceManager<Sampler>::Instance().GetPtr(pMaterial->m_sampler[i]);
+
+							textureBindings[i] = pTexture ? pTexture->m_pSRV.Get() : nullptr;
+							samplerBindings[i] = pSampler ? pSampler->m_pSampler.Get() : nullptr;
+						}
+						else
+						{
+							textureBindings[i] = nullptr;
+							samplerBindings[i] = nullptr;
+						}
+					}
+					pDC->PSSetShaderResources(0, 4, textureBindings);
+					pDC->PSSetSamplers(0, 4, samplerBindings);
+				}
 			}
 		}
 		else
 		{
 			pDC->RSSetState(m_pFallbackRasterState.Get());
+			pDC->OMSetDepthStencilState(m_pFallbackDepthStencilState.Get(), 0);
+			pDC->OMSetBlendState(m_pBlendStateOpaque.Get(), NULL, 0xffffffff);
 			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[0]);
 			Shader* pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[1]);
 			pVS->Bind(pDC);
 			pPS->Bind(pDC);
 
 			m_materialConstants.Bind(pDC, 3);
+
+			m_pPrevMaterial = nullptr;
+		}
+	}
+
+	void Graphics_Impl::InternalBindMesh(const Mesh* pMesh, ID3D11DeviceContext* pDC)
+	{
+		if (pMesh != m_pPrevMesh)
+		{
+			m_pPrevMesh = pMesh;
+
+			if (pMesh->m_bIsSkinnedMesh)
+			{
+				pDC->IASetInputLayout(m_pSkinnedMeshInputLayout.Get());
+			}
+			else
+			{
+				pDC->IASetInputLayout(m_pMeshInputLayout.Get());
+			}
+
+			pMesh->Bind(pDC);
 		}
 	}
 
@@ -4918,20 +5419,14 @@ namespace Play3d::Graphics
 
 		ID3D11DeviceContext* pDC = m_pDeviceContext.Get();
 
-		pDC->OMSetBlendState(m_pBlendStateOpaque.Get(), NULL, 0xffffffff);
+		BindActiveMaterial(pDC);
 
-		Material* pMaterial = Resources::ResourceManager<Material>::Instance().GetPtr(m_activeMaterial);
-		InternalBindMaterial(pMaterial, pDC);
-
-		pDC->IASetInputLayout(m_pMeshInputLayout.Get());
-
-		pMesh->Bind(pDC);
+		InternalBindMesh(pMesh, pDC);
 
 		m_frameConstants.Bind(pDC, 0);
 		m_drawConstants.Bind(pDC, 1);
 		m_lightConstants.Bind(pDC, 2);
 
-		pDC->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		if (pMesh->m_pIndexBuffer)
 		{
 			pDC->DrawIndexed(elementCount != ~0u ? elementCount : pMesh->m_indexCount, elementOffset, 0);
@@ -4942,8 +5437,7 @@ namespace Play3d::Graphics
 		}
 	}
 
-	void Graphics_Impl::DrawInstancedMesh(const Mesh* pMesh, u32 kInstanceCount, u32 kInstanceOffset, u32 elementOffset,
-										  u32 elementCount)
+	void Graphics_Impl::DrawInstancedMesh(const Mesh* pMesh, u32 kInstanceCount, u32 kInstanceOffset, u32 elementOffset, u32 elementCount)
 	{
 		PLAY_ASSERT(pMesh);
 
@@ -4951,20 +5445,14 @@ namespace Play3d::Graphics
 
 		ID3D11DeviceContext* pDC = m_pDeviceContext.Get();
 
-		pDC->OMSetBlendState(m_pBlendStateOpaque.Get(), NULL, 0xffffffff);
+		BindActiveMaterial(pDC);
 
-		Material* pMaterial = Resources::ResourceManager<Material>::Instance().GetPtr(m_activeMaterial);
-		InternalBindMaterial(pMaterial, pDC);
-
-		pDC->IASetInputLayout(m_pMeshInputLayout.Get());
-
-		pMesh->Bind(pDC);
+		InternalBindMesh(pMesh, pDC);
 
 		m_frameConstants.Bind(pDC, 0);
 		m_drawConstants.Bind(pDC, 1);
 		m_lightConstants.Bind(pDC, 2);
 
-		pDC->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		if (pMesh->m_pIndexBuffer)
 		{
 			pDC->DrawIndexedInstanced(elementCount != ~0u ? elementCount : pMesh->m_indexCount,
@@ -4975,10 +5463,7 @@ namespace Play3d::Graphics
 		}
 		else
 		{
-			pDC->DrawInstanced(elementCount != ~0u ? elementCount : pMesh->m_vertexCount,
-							   kInstanceCount,
-							   elementOffset,
-							   kInstanceOffset);
+			pDC->DrawInstanced(elementCount != ~0u ? elementCount : pMesh->m_vertexCount, kInstanceCount, elementOffset, kInstanceOffset);
 		}
 	}
 
@@ -4988,10 +5473,9 @@ namespace Play3d::Graphics
 
 		ID3D11DeviceContext* pDC = m_pDeviceContext.Get();
 
-		pDC->OMSetBlendState(m_pBlendStateOpaque.Get(), NULL, 0xffffffff);
+		BindActiveMaterial(pDC);
 
-		Material* pMaterial = Resources::ResourceManager<Material>::Instance().GetPtr(m_activeMaterial);
-		InternalBindMaterial(pMaterial, pDC);
+		m_pPrevMesh = nullptr;
 
 		pDC->IASetInputLayout(nullptr);
 
@@ -5001,6 +5485,32 @@ namespace Play3d::Graphics
 
 		pDC->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		pDC->Draw(elements, 0);
+	}
+
+	void Graphics_Impl::DrawIndirectWithoutVertices(BufferId hArgBuffer, u32 offset)
+	{
+		Buffer* pBuffer = Resources::ResourceManager<Buffer>::Instance().GetPtr(hArgBuffer);
+		PLAY_ASSERT(pBuffer);
+		if (pBuffer)
+		{
+			UpdateConstantBuffers();
+
+			ID3D11DeviceContext* pDC = m_pDeviceContext.Get();
+
+			BindActiveMaterial(pDC);
+
+			m_pPrevMesh = nullptr;
+
+			pDC->IASetInputLayout(nullptr);
+
+			m_frameConstants.Bind(pDC, 0);
+			m_drawConstants.Bind(pDC, 1);
+			m_lightConstants.Bind(pDC, 2);
+
+			pDC->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			pDC->DrawInstancedIndirect(pBuffer->GetBuffer(), offset);
+		}
 	}
 
 	void Graphics_Impl::SetViewport(const Viewport& v)
@@ -5037,8 +5547,8 @@ namespace Play3d::Graphics
 	void Graphics_Impl::UpdateUITransform()
 	{
 		m_uiFrameConstants.Get().viewProjectionMtx =
-			MatrixOrthoProjectRH(0.f, (f32)m_nSurfaceWidth, (f32)m_nSurfaceHeight, 0.f, 0.f, 1.f);
-		m_uiFrameConstants.Get().viewportRect = Vector4f(0.f, 0.f, (f32)m_nSurfaceWidth, (f32)m_nSurfaceHeight);
+			MatrixOrthoProjectRH(0.f, (f32)m_nRenderTargetWidth, (f32)m_nRenderTargetHeight, 0.f, 0.f, 1.f);
+		m_uiFrameConstants.Get().viewportRect = Vector4f(0.f, 0.f, (f32)m_nRenderTargetWidth, (f32)m_nRenderTargetHeight);
 	}
 
 	void Graphics_Impl::SetMaterial(MaterialId materialId)
@@ -5068,18 +5578,60 @@ namespace Play3d::Graphics
 		if (pBuffer)
 		{
 			D3D11_MAPPED_SUBRESOURCE data;
-			HRESULT hr =
-				m_pDeviceContext->Map(pBuffer->m_pBuffer.Get(), 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+			HRESULT hr = m_pDeviceContext->Map(pBuffer->GetBuffer(), 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
 			if (SUCCEEDED(hr))
 			{
 				memcpy(data.pData, pData, size);
-				m_pDeviceContext->Unmap(pBuffer->m_pBuffer.Get(), 0);
+				m_pDeviceContext->Unmap(pBuffer->GetBuffer(), 0);
 			}
 		}
 	}
 
-	void Graphics_Impl::BindGlobalTexture(u32 slot, TextureId textureId, SamplerId samplerId,
-										  ShaderStageFlag::Type stageBinding)
+	void Graphics_Impl::UpdateTexture(TextureId textureId, u32 mipId, u32 sliceId, const void* pData, size_t rowPitchBytes)
+	{
+		Texture* pTexture = Resources::ResourceManager<Texture>::Instance().GetPtr(textureId);
+		if (pTexture)
+		{
+			D3D11_TEXTURE2D_DESC desc;
+			ID3D11Texture2D* pD3DTexture = pTexture->GetTexture();
+			PLAY_ASSERT(pD3DTexture);
+
+			pD3DTexture->GetDesc(&desc);
+
+			UINT subResource = sliceId * desc.MipLevels + mipId;
+
+			D3D11_MAPPED_SUBRESOURCE data;
+			HRESULT hr = m_pDeviceContext->Map(pD3DTexture, subResource, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+
+			PLAY_ASSERT((size_t)data.RowPitch >= rowPitchBytes);
+
+			if (SUCCEEDED(hr))
+			{
+				if ((size_t)data.RowPitch == rowPitchBytes)
+				{
+					memcpy(data.pData, pData, rowPitchBytes * desc.Height);
+				}
+				else
+				{
+					PLAY_ASSERT((size_t)data.RowPitch >= rowPitchBytes);
+
+					const char* pSrcRow = static_cast<const char*>(pData);
+					char* pDstRow = static_cast<char*>(data.pData);
+
+					for (u32 row = 0; row < desc.Height; ++row)
+					{
+						memcpy(pDstRow, pSrcRow, rowPitchBytes);
+
+						pSrcRow += rowPitchBytes;
+						pDstRow += data.RowPitch;
+					}
+				}
+				m_pDeviceContext->Unmap(pD3DTexture, 0);
+			}
+		}
+	}
+
+	void Graphics_Impl::BindGlobalTexture(u32 slot, TextureId textureId, SamplerId samplerId, ShaderStageFlag::Type stageBinding)
 	{
 		Texture* pTexture = Resources::ResourceManager<Texture>::Instance().GetPtr(textureId);
 		Sampler* pSampler = Resources::ResourceManager<Sampler>::Instance().GetPtr(samplerId);
@@ -5109,7 +5661,7 @@ namespace Play3d::Graphics
 	void Graphics_Impl::BindGlobalBufferCBV(u32 slot, BufferId bufferId, ShaderStageFlag::Type stageBinding)
 	{
 		Buffer* pBuffer = Resources::ResourceManager<Buffer>::Instance().GetPtr(bufferId);
-		ID3D11Buffer* pBufferViews[] = {pBuffer ? pBuffer->m_pBuffer.Get() : nullptr};
+		ID3D11Buffer* pBufferViews[] = {pBuffer ? pBuffer->GetBuffer() : nullptr};
 
 		if (stageBinding & ShaderStageFlag::VERTEX_STAGE)
 		{
@@ -5194,6 +5746,11 @@ namespace Play3d::Graphics
 		return {m_nSurfaceWidth, m_nSurfaceHeight};
 	}
 
+	SurfaceSize Graphics_Impl::GetRenderTargetSize() const
+	{
+		return {m_nRenderTargetWidth, m_nRenderTargetHeight};
+	}
+
 	void Graphics_Impl::SetRenderTargets(const TextureId* colourTargetIdArray, u32 mrtCount, TextureId depthTextureId)
 	{
 		PLAY_ASSERT(mrtCount <= D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT);
@@ -5201,12 +5758,20 @@ namespace Play3d::Graphics
 		ID3D11RenderTargetView* rtvs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
 		ID3D11DepthStencilView* pDSV = nullptr;
 
+		m_nRenderTargetWidth = m_nSurfaceWidth;
+		m_nRenderTargetHeight = m_nSurfaceHeight;
+
 		for (u32 i = 0; i < mrtCount; ++i)
 		{
 			Texture* pRenderTarget = Resources::ResourceManager<Texture>::Instance().GetPtr(colourTargetIdArray[i]);
 			if (pRenderTarget)
 			{
 				rtvs[i] = pRenderTarget->m_pRTV.Get();
+
+				D3D11_TEXTURE2D_DESC desc;
+				pRenderTarget->GetTexture()->GetDesc(&desc);
+				m_nRenderTargetWidth = desc.Width;
+				m_nRenderTargetHeight = desc.Height;
 			}
 			else
 			{
@@ -5218,9 +5783,16 @@ namespace Play3d::Graphics
 		if (pDepthTarget)
 		{
 			pDSV = pDepthTarget->m_pDSV.Get();
+
+			D3D11_TEXTURE2D_DESC desc;
+			pDepthTarget->GetTexture()->GetDesc(&desc);
+			m_nRenderTargetWidth = desc.Width;
+			m_nRenderTargetHeight = desc.Height;
 		}
 
 		m_pDeviceContext->OMSetRenderTargets(mrtCount, rtvs, pDSV);
+
+		UpdateUITransform();
 	}
 
 	void Graphics_Impl::SetRenderTargetsToSwapChain(bool bEnableDefaultDepth)
@@ -5228,6 +5800,10 @@ namespace Play3d::Graphics
 		ID3D11RenderTargetView* rtvs[] = {m_pBackBufferRTV.Get()};
 		ID3D11DepthStencilView* pDSV = bEnableDefaultDepth ? m_pDefaultDSV.Get() : nullptr;
 		m_pDeviceContext->OMSetRenderTargets(1, rtvs, pDSV);
+
+		m_nRenderTargetWidth = m_nSurfaceWidth;
+		m_nRenderTargetHeight = m_nSurfaceHeight;
+		UpdateUITransform();
 	}
 
 	void Graphics_Impl::SetRenderTargetsToSwapChain(TextureId depthTextureId)
@@ -5241,6 +5817,10 @@ namespace Play3d::Graphics
 			pDSV = pDepthTarget->m_pDSV.Get();
 		}
 		m_pDeviceContext->OMSetRenderTargets(1, rtvs, pDSV);
+
+		m_nRenderTargetWidth = m_nSurfaceWidth;
+		m_nRenderTargetHeight = m_nSurfaceHeight;
+		UpdateUITransform();
 	}
 
 	void Graphics_Impl::ClearDepthTarget(TextureId textureId, f32 depthValue)
@@ -5304,7 +5884,7 @@ namespace Play3d::Graphics
 
 		RegisterClassExW(&wcex);
 
-		UINT dwStyle = WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME;
+		UINT dwStyle = WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
 		RECT rect = {0, 0, (LONG)width, (LONG)height};
 		AdjustWindowRect(&rect, dwStyle, FALSE);
 		m_hWnd = CreateWindowW(wndClassName,
@@ -5330,6 +5910,8 @@ namespace Play3d::Graphics
 
 		m_nSurfaceWidth = width;
 		m_nSurfaceHeight = height;
+		m_nRenderTargetWidth = width;
+		m_nRenderTargetHeight = height;
 
 		return RESULT_OK;
 	}
@@ -5366,6 +5948,12 @@ namespace Play3d::Graphics
 							   &m_pDevice,
 							   &featureLevel,
 							   &m_pDeviceContext);
+		if (FAILED(hr))
+		{
+			return RESULT_FAIL;
+		}
+
+		hr = m_pDeviceContext.As(&m_pAnnotation);
 		if (FAILED(hr))
 		{
 			return RESULT_FAIL;
@@ -5421,6 +6009,38 @@ namespace Play3d::Graphics
 			return result;
 		}
 
+		result = InitTimestamps();
+		if (result != RESULT_OK)
+		{
+			return result;
+		}
+
+		return RESULT_OK;
+	}
+
+	result_t Graphics_Impl::InitTimestamps()
+	{
+		HRESULT hr;
+		D3D11_QUERY_DESC timeStampDesc = {};
+		timeStampDesc.Query = D3D11_QUERY_TIMESTAMP;
+		hr = m_pDevice->CreateQuery(&timeStampDesc, &m_pGPUBeginFrameTime);
+		if (FAILED(hr))
+		{
+			return RESULT_FAIL;
+		}
+		hr = m_pDevice->CreateQuery(&timeStampDesc, &m_pGPUEndFrameTime);
+		if (FAILED(hr))
+		{
+			return RESULT_FAIL;
+		}
+
+		D3D11_QUERY_DESC disjointDesc = {};
+		disjointDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
+		hr = m_pDevice->CreateQuery(&disjointDesc, &m_pGPUDisjointQuery);
+		if (FAILED(hr))
+		{
+			return RESULT_FAIL;
+		}
 		return RESULT_OK;
 	}
 
@@ -5435,6 +6055,8 @@ namespace Play3d::Graphics
 
 		m_nSurfaceWidth = width;
 		m_nSurfaceHeight = height;
+		m_nRenderTargetWidth = width;
+		m_nRenderTargetHeight = height;
 
 		m_pDeviceContext->OMSetRenderTargets(0, NULL, NULL);
 
@@ -5525,36 +6147,16 @@ namespace Play3d::Graphics
 #ifdef _DEBUG
 		compilationFlags |= ShaderCompilationFlags::DEBUG;
 #endif
+
 		{
 			ShaderCompilerDesc desc;
-			desc.m_name = "HLSL_PrimitiveBatchShader";
-			desc.m_hlslCode = HLSL_PrimitiveBatchShader;
+			desc.m_name = "HLSL_SkinnedMeshShader";
+			desc.m_hlslCode = HLSL_SkinnedMeshShader;
 			desc.m_type = ShaderType::VERTEX_SHADER;
 			desc.m_entryPoint = "VS_Main";
 			desc.m_flags = compilationFlags;
 
-			m_primitiveBatchVS = Shader::Compile(desc);
-
-			desc.m_type = ShaderType::PIXEL_SHADER;
-			desc.m_entryPoint = "PS_Main";
-
-			m_primitiveBatchPS = Shader::Compile(desc);
-		}
-
-		{
-			ShaderCompilerDesc desc;
-			desc.m_name = "HLSL_FontShader";
-			desc.m_hlslCode = HLSL_FontShader;
-			desc.m_type = ShaderType::VERTEX_SHADER;
-			desc.m_entryPoint = "VS_Main";
-			desc.m_flags = compilationFlags;
-
-			m_fontVS = Shader::Compile(desc);
-
-			desc.m_type = ShaderType::PIXEL_SHADER;
-			desc.m_entryPoint = "PS_Main";
-
-			m_fontPS = Shader::Compile(desc);
+			m_skinnedMeshVS = Shader::Compile(desc);
 		}
 
 		{
@@ -5623,18 +6225,6 @@ namespace Play3d::Graphics
 	result_t Graphics_Impl::CreateInputLayouts()
 	{
 		{
-			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_primitiveBatchVS);
-
-			D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
-				{"POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,offsetof(PrimitiveVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0},
-				{"COLOUR",0,DXGI_FORMAT_R8G8B8A8_UNORM, 0,offsetof(PrimitiveVertex, colour),D3D11_INPUT_PER_VERTEX_DATA,0},
-			};
-
-			HRESULT hr = m_pDevice->CreateInputLayout(vertexFormat,2, pVS->GetByteCode(),pVS->GetByteCodeSize(),&m_pPrimitiveInputLayout);
-			PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateInputLayout");
-		}
-
-		{
 			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[0]);
 
 				D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
@@ -5650,7 +6240,7 @@ namespace Play3d::Graphics
 		}
 
 		{
-			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_meshShaders[0]);
+			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_skinnedMeshVS);
 
 				D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
 					{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -5666,18 +6256,6 @@ namespace Play3d::Graphics
 				PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateInputLayout");
 		}
 
-		{
-			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_fontVS);
-
-				D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
-					{"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(UI::FontVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0},
-					{"UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(UI::FontVertex, uv), D3D11_INPUT_PER_VERTEX_DATA, 0},
-					{"COLOUR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(UI::FontVertex, colour), D3D11_INPUT_PER_VERTEX_DATA, 0},
-				};
-
-				HRESULT hr = m_pDevice->CreateInputLayout(vertexFormat, 3, pVS->GetByteCode(), pVS->GetByteCodeSize(), &m_pFontInputLayout);
-				PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateInputLayout");
-		}
 		return RESULT_OK;
 	}
 
@@ -5781,6 +6359,48 @@ namespace Play3d::Graphics
 		}
 		return 0;
 	}
+
+	void Graphics_Impl::BindFrameConstants()
+	{
+		m_frameConstants.Bind(m_pDeviceContext.Get(), 0);
+	}
+
+	void Graphics_Impl::BindUIFrameConstants()
+	{
+		m_uiFrameConstants.Bind(m_pDeviceContext.Get(), 0);
+	}
+
+	void Graphics_Impl::BindActiveMaterial(ID3D11DeviceContext* pDC)
+	{
+		Material* pMaterial = Resources::ResourceManager<Material>::Instance().GetPtr(m_activeMaterial);
+		InternalBindMaterial(pMaterial, pDC);
+	}
+
+	void Graphics_Impl::PushMarker(const char* name)
+	{
+		static constexpr u32 kMaxMarkerNameLength = 64;
+		wchar_t wstrName[kMaxMarkerNameLength];
+		size_t len = 0;
+		mbstowcs_s(&len, wstrName, kMaxMarkerNameLength, name, _TRUNCATE);
+		m_pAnnotation->BeginEvent(wstrName);
+	}
+
+	void Graphics_Impl::PopMarker()
+	{
+		m_pAnnotation->EndEvent();
+	}
+
+	void Graphics_Impl::ClearStateCache()
+	{
+		m_pPrevMaterial = nullptr;
+		m_pPrevMesh = nullptr;
+	}
+
+	void Graphics_Impl::SetFullscreenMode(bool bEnable)
+	{
+		m_pSwapChain->SetFullscreenState(bEnable, NULL);
+	}
+
 }
 
 //------------------------------------------- Graphics/Material.cpp -------------------------------------------
@@ -5844,6 +6464,7 @@ namespace Play3d::Graphics
 
 		key.m_bits.m_pixelShader = 1;
 		m_PixelShader = Graphics_Impl::Instance().GetMaterialShader(key);
+		SetModified();
 	}
 
 	Material::Material(const ComplexMaterialDesc& rDesc)
@@ -5855,6 +6476,7 @@ namespace Play3d::Graphics
 		m_VertexShader = rDesc.m_VertexShader;
 		m_PixelShader = rDesc.m_PixelShader;
 		SetupTextureBindings(pDevice, rDesc.m_texture, rDesc.m_sampler);
+		SetModified();
 	}
 
 	Material::~Material()
@@ -5863,6 +6485,7 @@ namespace Play3d::Graphics
 	void Material::SetTexture(u32 slot, TextureId id)
 	{
 		m_texture[slot] = id;
+		SetModified();
 	}
 
 	void Material::SetupState(ID3D11Device* pDevice, const MaterialStateSettings& state)
@@ -5907,7 +6530,10 @@ namespace Play3d::Graphics
 				desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
 				desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
 				break;
-
+			case BlendMode::MULTIPLY:
+				desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ZERO;
+				desc.RenderTarget[0].DestBlend = D3D11_BLEND_SRC_COLOR;
+				break;
 			default:
 				desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
 				desc.RenderTarget[0].DestBlend = D3D11_BLEND_ZERO;
@@ -5968,7 +6594,7 @@ namespace Play3d::Graphics
 			Graphics::ShaderCompilerDesc compilerOptions = {};
 			compilerOptions.m_name = shaderName;
 			compilerOptions.m_type = Graphics::ShaderType::VERTEX_SHADER;
-			compilerOptions.m_flags = (u32)Graphics::ShaderCompilationFlags::DEBUG;
+			compilerOptions.m_flags = (u32)Graphics::ShaderCompilationFlags::DEBUG | (u32)Graphics::ShaderCompilationFlags::ADD_RUNTIME_COMPILE_MACRO;
 			compilerOptions.m_hlslCode = hlslCode;
 			compilerOptions.m_entryPoint = "VS_Main";
 			compilerOptions.m_defines.push_back({"MAX_LIGHTS", "4"});
@@ -5982,7 +6608,7 @@ namespace Play3d::Graphics
 			Graphics::ShaderCompilerDesc compilerOptions = {};
 			compilerOptions.m_name = shaderName;
 			compilerOptions.m_type = Graphics::ShaderType::PIXEL_SHADER;
-			compilerOptions.m_flags = (u32)Graphics::ShaderCompilationFlags::DEBUG;
+			compilerOptions.m_flags = (u32)Graphics::ShaderCompilationFlags::DEBUG | (u32)Graphics::ShaderCompilationFlags::ADD_RUNTIME_COMPILE_MACRO;
 			compilerOptions.m_hlslCode = hlslCode;
 			compilerOptions.m_entryPoint = "PS_Main";
 			compilerOptions.m_defines.push_back({"MAX_LIGHTS", "4"});
@@ -5999,16 +6625,61 @@ namespace Play3d::Graphics
 
 		return *this;
 	}
+
+	Play3d::Graphics::ComplexMaterialDesc& ComplexMaterialDesc::SetupFromCompiledShaders(const char* name, const char* fxoFolderPath)
+	{
+		std::string fxoVSPath = std::format("{}/{}_VS.fxo", fxoFolderPath,name);
+		std::string fxoPSPath = std::format("{}/{}_PS.fxo", fxoFolderPath,name);
+
+		m_state.m_cullMode = Graphics::CullMode::BACK;
+		m_state.m_fillMode = Graphics::FillMode::SOLID;
+		m_VertexShader = Graphics::Shader::LoadCompiledShaderFromFile(fxoVSPath.c_str(), ShaderType::VERTEX_SHADER);
+		m_PixelShader = Graphics::Shader::LoadCompiledShaderFromFile(fxoPSPath.c_str(), ShaderType::PIXEL_SHADER);
+
+		return *this;
+	}
+
+	Play3d::Graphics::ComplexMaterialDesc& ComplexMaterialDesc::SetupFromEitherHLSLorCompiledShaders(const char* name, const char* path)
+	{
+		std::string fxoVSPath = std::format("{}/{}_VS.fxo", path,name);
+		std::string fxoPSPath = std::format("{}/{}_PS.fxo", path,name);
+
+		if (System::CheckFileExists(fxoVSPath.c_str()) && System::CheckFileExists(fxoPSPath.c_str()))
+		{
+			this->SetupFromCompiledShaders(name, path);
+		}
+		else
+		{
+			std::string hlslPath = std::format("{}/{}.hlsl", path,name);
+			this->SetupFromHLSLFile(name,hlslPath.c_str());
+		}
+		return *this;
+	}
+
 }
 
 //--------------------------------------------- Graphics/Mesh.cpp ---------------------------------------------
 
 namespace Play3d::Graphics
 {
+	D3D11_PRIMITIVE_TOPOLOGY TranslateMeshTopology(MeshTopology topology)
+	{
+		switch (topology)
+		{
+		case MeshTopology::POINT_LIST: return D3D11_PRIMITIVE_TOPOLOGY_POINTLIST;
+		case MeshTopology::LINE_LIST: return D3D11_PRIMITIVE_TOPOLOGY_LINELIST;
+		case MeshTopology::LINE_STRIP: return D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP;
+		case MeshTopology::TRI_LIST: return D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		case MeshTopology::TRI_STRIP: return D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+		}
+		return D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	}
+
 	Mesh::Mesh(const MeshDesc& rDesc)
 		: m_indexCount(rDesc.m_indexCount)
 		, m_vertexCount(rDesc.m_vertexCount)
 		, m_bIsSkinnedMesh(false)
+		, m_topology(TranslateMeshTopology(rDesc.m_topology))
 	{
 		for (u32 i = 0; i < rDesc.m_streamCount; ++i)
 		{
@@ -6100,19 +6771,18 @@ namespace Play3d::Graphics
 
 	void Mesh::Bind(ID3D11DeviceContext* pDC) const
 	{
+		pDC->IASetPrimitiveTopology(m_topology);
+
 		if (m_pIndexBuffer)
 		{
 			pDC->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 		}
 
-		for (auto it : m_streamBuffers)
-		{
-			pDC->IASetVertexBuffers(0,
-									(UINT)m_streamBuffers.size(),
-									m_streamBuffers.data(),
-									m_strides.data(),
-									m_offsets.data());
-		}
+		pDC->IASetVertexBuffers(0,
+								(UINT)m_streamBuffers.size(),
+								m_streamBuffers.data(),
+								m_strides.data(),
+								m_offsets.data());
 	}
 }
 
@@ -6595,6 +7265,8 @@ namespace Play3d::Graphics
 
 namespace Play3d::Graphics
 {
+	PLAY_SINGLETON_IMPL(PrimitiveRenderSystem);
+
 	PrimitiveBatch::PrimitiveBatch(ID3D11Device* pDevice, u32 kMaxVertexCount)
 		: m_totalVertexCount(0)
 		, m_maxVertexCount(kMaxVertexCount)
@@ -6702,6 +7374,154 @@ namespace Play3d::Graphics
 			pContext->Draw(m_triangleVertexCount, m_pointVertexCount + m_lineVertexCount);
 		}
 	}
+
+	PrimitiveRenderSystem::PrimitiveRenderSystem()
+		: m_nNextPrimitiveBatch(0)
+	{
+		HRESULT hr;
+
+		{
+			u32 compilationFlags = 0;
+#ifdef _DEBUG
+			compilationFlags |= ShaderCompilationFlags::DEBUG;
+#endif
+
+			ShaderCompilerDesc desc;
+			desc.m_name = "HLSL_PrimitiveBatchShader";
+			desc.m_hlslCode = HLSL_PrimitiveBatchShader;
+			desc.m_type = ShaderType::VERTEX_SHADER;
+			desc.m_entryPoint = "VS_Main";
+			desc.m_flags = compilationFlags;
+
+			m_primitiveBatchVS = Shader::Compile(desc);
+
+			desc.m_type = ShaderType::PIXEL_SHADER;
+			desc.m_entryPoint = "PS_Main";
+
+			m_primitiveBatchPS = Shader::Compile(desc);
+		}
+
+		auto pDevice = Graphics_Impl::Instance().GetDevice();
+
+		{
+			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_primitiveBatchVS);
+
+			D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
+				{"POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,offsetof(PrimitiveVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0},
+				{"COLOUR",0,DXGI_FORMAT_R8G8B8A8_UNORM, 0,offsetof(PrimitiveVertex, colour),D3D11_INPUT_PER_VERTEX_DATA,0},
+			};
+
+			hr = pDevice->CreateInputLayout(vertexFormat,2, pVS->GetByteCode(),pVS->GetByteCodeSize(),&m_pPrimitiveInputLayout);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateInputLayout");
+		}
+
+		{
+			D3D11_RASTERIZER_DESC desc = {};
+			desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
+			desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
+			desc.FrontCounterClockwise = FALSE;
+			desc.DepthBias = 0;
+			desc.DepthBiasClamp = 0.f;
+			desc.SlopeScaledDepthBias = 0.f;
+			desc.DepthClipEnable = TRUE;
+			desc.ScissorEnable = FALSE;
+			desc.MultisampleEnable = FALSE;
+			desc.AntialiasedLineEnable = FALSE;
+			hr = pDevice->CreateRasterizerState(&desc, &m_pRasterState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid RasterState");
+		}
+		{
+			D3D11_DEPTH_STENCIL_DESC desc = {};
+			desc.DepthEnable = TRUE;
+			desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
+			desc.DepthFunc = D3D11_COMPARISON_FUNC::D3D11_COMPARISON_LESS;
+			desc.StencilEnable = FALSE;
+			hr = pDevice->CreateDepthStencilState(&desc, &m_pDepthStencilState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid DepthStencilState");
+		}
+		{
+			D3D11_BLEND_DESC desc = {};
+			desc.AlphaToCoverageEnable = FALSE;
+			desc.IndependentBlendEnable = FALSE;
+			desc.RenderTarget[0].BlendEnable = FALSE;
+			desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+			desc.RenderTarget[0].DestBlend = D3D11_BLEND_ZERO;
+			desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+			desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+			desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+			hr = pDevice->CreateBlendState(&desc, &m_pBlendState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid BlendState");
+		}
+	}
+
+	PrimitiveRenderSystem::~PrimitiveRenderSystem()
+	{
+		for (auto& it : m_primitiveBatchRing)
+		{
+			PLAY_SAFE_DELETE(it);
+		}
+	}
+
+	void PrimitiveRenderSystem::OnBeginFrame()
+	{
+		m_nNextPrimitiveBatch = 0;
+	}
+
+	void PrimitiveRenderSystem::OnEndFrame()
+	{}
+
+	PrimitiveBatch* PrimitiveRenderSystem::AllocatePrimitiveBatch()
+	{
+		PrimitiveBatch* pBatch = nullptr;
+		if (m_nNextPrimitiveBatch < m_primitiveBatchRing.size())
+		{
+			pBatch = m_primitiveBatchRing[m_nNextPrimitiveBatch];
+			++m_nNextPrimitiveBatch;
+		}
+		else
+		{
+			auto pDevice = Graphics_Impl::Instance().GetDevice();
+			pBatch = new PrimitiveBatch(pDevice, 0x10000);
+			m_primitiveBatchRing.push_back(pBatch);
+			++m_nNextPrimitiveBatch;
+		}
+		PLAY_ASSERT(pBatch);
+		return pBatch;
+	}
+
+	void PrimitiveRenderSystem::DrawPrimitiveBatch(PrimitiveBatch* pBatch)
+	{
+		PLAY_ASSERT(pBatch);
+
+		Graphics_Impl::Instance().UpdateConstantBuffers();
+
+		ID3D11DeviceContext* pDC = Graphics_Impl::Instance().GetDeviceContext();
+
+		pBatch->Flush(pDC);
+
+		Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_primitiveBatchVS);
+		Shader* pPS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_primitiveBatchPS);
+
+		pDC->IASetInputLayout(m_pPrimitiveInputLayout.Get());
+
+		pVS->Bind(pDC);
+		pPS->Bind(pDC);
+
+		pBatch->Bind(pDC);
+
+		Graphics_Impl::Instance().BindFrameConstants();
+
+		pDC->RSSetState(m_pRasterState.Get());
+		pDC->OMSetBlendState(m_pBlendState.Get(), NULL, 0xffffffff);
+		pDC->OMSetDepthStencilState(m_pDepthStencilState.Get(), 0);
+
+		pBatch->DrawPoints(pDC);
+		pBatch->DrawLines(pDC);
+		pBatch->DrawTriangles(pDC);
+	}
+
 }
 
 //-------------------------------------------- Graphics/Sampler.cpp --------------------------------------------
@@ -6726,6 +7546,8 @@ namespace Play3d::Graphics
 		case AddressMode::CLAMP: return D3D11_TEXTURE_ADDRESS_CLAMP;
 		case AddressMode::WRAP: return D3D11_TEXTURE_ADDRESS_WRAP;
 		case AddressMode::MIRROR: return D3D11_TEXTURE_ADDRESS_MIRROR;
+		case AddressMode::MIRROR_ONCE: return D3D11_TEXTURE_ADDRESS_MIRROR_ONCE;
+		case AddressMode::BORDER: return D3D11_TEXTURE_ADDRESS_BORDER;
 		default: return D3D11_TEXTURE_ADDRESS_CLAMP;
 		};
 	}
@@ -6736,19 +7558,16 @@ namespace Play3d::Graphics
 
 		D3D11_SAMPLER_DESC desc = {};
 		desc.Filter = TranslateFilterMode(rDesc.m_filter);
-		D3D11_TEXTURE_ADDRESS_MODE mode = TranslateAddressMode(rDesc.m_addressMode);
-		desc.AddressU = mode;
-		desc.AddressV = mode;
-		desc.AddressW = mode;
+		desc.AddressU = TranslateAddressMode(rDesc.m_addressModeU);
+		desc.AddressV = TranslateAddressMode(rDesc.m_addressModeV);
+		desc.AddressW = TranslateAddressMode(rDesc.m_addressModeW);
 		desc.MinLOD = -FLT_MAX;
 		desc.MaxLOD = FLT_MAX;
 		desc.MipLODBias = 0.0;
 		desc.MaxAnisotropy = rDesc.m_filter == FilterMode::ANISOTROPIC ? 16 : 1;
 		desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-		desc.BorderColor[0] = 1.0f;
-		desc.BorderColor[1] = 1.0f;
-		desc.BorderColor[2] = 1.0f;
-		desc.BorderColor[3] = 1.0f;
+
+		rDesc.m_borderColour.as_float_rgba_srgb(desc.BorderColor);
 
 		HRESULT hr = pDevice->CreateSamplerState(&desc, &m_pSampler);
 		PLAY_ASSERT(SUCCEEDED(hr));
@@ -6861,16 +7680,13 @@ namespace Play3d::Graphics
 
 	ShaderId Shader::Compile(const ShaderCompilerDesc& rDesc)
 	{
-		const bool bCompileFromFile =
-			((rDesc.m_flags & ShaderCompilationFlags::SOURCE_FILE) == ShaderCompilationFlags::SOURCE_FILE);
+		const bool bCompileFromFile = ((rDesc.m_flags & ShaderCompilationFlags::SOURCE_FILE) == ShaderCompilationFlags::SOURCE_FILE);
+		const bool bAddRuntimeCompileMacro = ((rDesc.m_flags & ShaderCompilationFlags::ADD_RUNTIME_COMPILE_MACRO) == ShaderCompilationFlags::ADD_RUNTIME_COMPILE_MACRO);
 		const bool bUseStandardMacros = ((rDesc.m_flags & ShaderCompilationFlags::DISABLE_STANDARD_MACROS) == 0);
 
 		if (bCompileFromFile)
 		{
-			Debug::Printf("Compiling %s : %s ('%s')\n",
-						  rDesc.m_name.c_str(),
-						  rDesc.m_entryPoint.c_str(),
-						  rDesc.m_hlslCode.c_str());
+			Debug::Printf("Compiling %s : %s ('%s')\n", rDesc.m_name.c_str(), rDesc.m_entryPoint.c_str(), rDesc.m_hlslCode.c_str());
 		}
 		else
 		{
@@ -6893,6 +7709,10 @@ namespace Play3d::Graphics
 		};
 
 		std::vector<D3D_SHADER_MACRO> defines = rDesc.m_defines;
+		if(bAddRuntimeCompileMacro)
+		{
+			defines.push_back({"PLAY3D_RUNTIME_COMPILE", NULL});
+		}
 		defines.push_back({NULL, NULL});
 
 		ComPtr<ID3DBlob> pShaderBlob;
@@ -6901,6 +7721,7 @@ namespace Play3d::Graphics
 		std::string strSourceCode;
 		if (bUseStandardMacros)
 		{
+			strSourceCode += std::string("#line 1 \"HLSL_StandardMacros\"\n");
 			strSourceCode += Graphics::HLSL_StandardMacros;
 		}
 
@@ -6911,10 +7732,12 @@ namespace Play3d::Graphics
 			pLoadedSrc = (const char*)System::LoadFileData(rDesc.m_hlslCode.c_str(), sourceSizeBytes);
 			PLAY_ASSERT_MSG(pLoadedSrc, "Could not load the shader file '%s'", rDesc.m_hlslCode.c_str());
 
+			strSourceCode += std::string("#line 1 \"") + rDesc.m_hlslCode + std::string("\"\n");
 			strSourceCode += std::string(pLoadedSrc);
 		}
 		else
 		{
+			strSourceCode += std::string("#line 1 \"HLSL_Internal\"\n");
 			strSourceCode += rDesc.m_hlslCode;
 		}
 
@@ -6954,6 +7777,32 @@ namespace Play3d::Graphics
 
 		return Resources::CreateAsset<Shader>(desc);
 	}
+
+	ShaderId Shader::LoadCompiledShaderFromFile(const char* pFilePath, ShaderType type)
+	{
+
+		size_t sourceSizeBytes = 0;
+		const void* pLoadedSrc = (const char*)System::LoadFileData(pFilePath, sourceSizeBytes);
+
+		if (!pLoadedSrc)
+		{
+			Debug::Printf("!! Shader Load Failed !!");
+			return ShaderId();
+		}
+
+		ShaderDesc desc;
+		desc.m_name = pFilePath;
+		desc.m_pByteCode = const_cast<void*>(pLoadedSrc);
+		desc.m_sizeBytes = sourceSizeBytes;
+		desc.m_type = type;
+
+		ShaderId asset =  Resources::CreateAsset<Shader>(desc);
+
+		System::ReleaseFileData(pLoadedSrc);
+		return asset;
+
+	}
+
 }
 
 //---------------------------------------- Graphics/ShaderCode_Impl.cpp ----------------------------------------
@@ -7132,58 +7981,163 @@ float4 PS_Main(PSInput input) : SV_TARGET
 }
 
 )";
+//!----------------------------------- EmbeddedShaders/SkinnedMeshShader.hlsl -----------------------------------
+const char* HLSL_SkinnedMeshShader = R"(
+PLAY3D_SKINNED_MESH_VS_INPUTS
+
+struct PSInput
+{
+	float4 position : SV_POSITION;
+};
+
+PSInput VS_Main(VSInput input)
+{
+	PSInput output;
+	output.position = float4(0, 0, 0, 1);
+	return output;
+}
+
+)";
+//!----------------------------------- EmbeddedShaders/SpriteBatchShader.hlsl -----------------------------------
+const char* HLSL_SpriteBatchShader = R"(
+
+PLAY3D_PER_FRAME_CONSTANTS
+PLAY3D_PER_DRAW_CONSTANTS
+
+struct SpriteInfo
+{
+	uint4 dimPixels;
+	float4 uv[4];
+	float4 offset;
+};
+
+StructuredBuffer<SpriteInfo> g_atlas : register(t4);
+
+struct VSInput
+{
+	uint vertexId : SV_VertexID;
+
+	uint instanceId : SV_InstanceID;
+	float4 posRotate : POSROTATE;
+	float4 scaleOffset : SCALEOFFSET;
+	float4 colour : COLOUR;
+	uint4 index : INDEX;
+};
+
+struct PSInput
+{
+	float4 position : SV_POSITION;
+	float4 colour : COLOUR;
+	float2 uv : UV;
+};
+
+static const float2 g_quadOffset[4] = {float2(0, 0), float2(1, 0), float2(0, 1), float2(1, 1)};
+
+PSInput VS_Main(VSInput input)
+{
+	PSInput output;
+
+	uint atlasIndex = input.index.x;
+
+	float2 pos_ls = (g_quadOffset[input.vertexId] - g_atlas[atlasIndex].offset.xy) * float2(g_atlas[atlasIndex].dimPixels.zw) * input.scaleOffset.xy + input.scaleOffset.zw;
+
+	float c = cos(input.posRotate.w);
+	float s = sin(input.posRotate.w);
+	float2x2 rotMtx = float2x2(
+		c, -s,
+		s, c);
+
+	output.position = mul(worldMtx, float4(input.posRotate.xyz + float3(mul(rotMtx, pos_ls), 0.f), 1.0f));
+	output.colour = pow(input.colour, 2.2);
+
+	output.uv = g_atlas[atlasIndex].uv[input.vertexId].xy;
+	return output;
+}
+
+Texture2D g_colourTexture : register(t0);
+SamplerState g_linearSampler : register(s0);
+
+float4 PS_Main(PSInput input)
+	: SV_TARGET
+{
+	float4 Cd = g_colourTexture.Sample(g_linearSampler, input.uv);
+	clip(Cd.a);
+	return float4(Cd.rgb * input.colour.rgb, Cd.a);
+}
+
+)";
 //!------------------------------------ EmbeddedShaders/StandardMacros.hlsl ------------------------------------
 const char* HLSL_StandardMacros = R"(
 
 #define PLAY3D_PER_FRAME_CONSTANTS\
-cbuffer FrameConstantData : register(b0)\
-{\
-	float4x4 viewMtx;\
-	float4x4 projectionMtx;\
-	float4x4 viewProjectionMtx;\
-	float4x4 invViewMtx;\
-	float4x4 invProjectionMtx;\
-	float4 viewPosition;\
-	float4 time;\
-};
+cbuffer                                                                                   \
+	FrameConstantData:                                                                                                 \
+	register(b0)                                                                                                       \
+	{                                                                                                                  \
+		float4x4 viewMtx;                                                                                              \
+		float4x4 projectionMtx;                                                                                        \
+		float4x4 viewProjectionMtx;                                                                                    \
+		float4x4 invViewMtx;                                                                                           \
+		float4x4 invProjectionMtx;                                                                                     \
+		float4 viewPosition;                                                                                           \
+		float4 time;                                                                                                   \
+	};
 
 #define PLAY3D_PER_DRAW_CONSTANTS\
-cbuffer DrawConstantData : register(b1)\
-{\
-	float4x4 mvpMtx;\
-	float4x4 worldMtx;\
-	float4x4 normalMtx;\
-};
+cbuffer                                                                                    \
+	DrawConstantData:                                                                                                  \
+	register(b1)                                                                                                       \
+	{                                                                                                                  \
+		float4x4 mvpMtx;                                                                                               \
+		float4x4 worldMtx;                                                                                             \
+		float4x4 normalMtx;                                                                                            \
+	};
 
 #define MAX_LIGHTS 4
 
 #define PLAY3D_LIGHT_CONSTANTS\
-cbuffer LightConstantData : register(b2)\
-{\
-	float4 lightPos[MAX_LIGHTS];\
-	float4 lightDir[MAX_LIGHTS];\
-	float4 lightColour[MAX_LIGHTS];\
-	float4 lightAmbient;\
-};
+cbuffer                                                                                       \
+	LightConstantData:                                                                                                 \
+	register(b2)                                                                                                       \
+	{                                                                                                                  \
+		float4 lightPos[MAX_LIGHTS];                                                                                   \
+		float4 lightDir[MAX_LIGHTS];                                                                                   \
+		float4 lightColour[MAX_LIGHTS];                                                                                \
+		float4 lightAmbient;                                                                                           \
+	};
 
 #define PLAY3D_MATERIAL_CONSTANTS\
-cbuffer MaterialConstantData : register(b3)\
-{\
-	float4 diffuseColour;\
-	float4 specularColour;\
-};
+cbuffer                                                                                    \
+	MaterialConstantData:                                                                                              \
+	register(b3)                                                                                                       \
+	{                                                                                                                  \
+		float4 diffuseColour;                                                                                          \
+		float4 specularColour;                                                                                         \
+	};
 
 #define PLAY3D_MESH_VS_INPUTS\
-struct VSInput\
-{\
-	float3 position : POSITION;\
-	float4 colour : COLOUR;\
-	float3 normal : NORMAL;\
-	float2 uv : UV;\
-	float4 tangent : TANGENT;\
-};
+struct                                                                                        \
+	VSInput                                                                                                            \
+	{                                                                                                                  \
+		float3 position : POSITION;                                                                                    \
+		float4 colour : COLOUR;                                                                                        \
+		float3 normal : NORMAL;                                                                                        \
+		float2 uv : UV;                                                                                                \
+		float4 tangent : TANGENT;                                                                                      \
+	};
 
-#line 0
+#define PLAY3D_SKINNED_MESH_VS_INPUTS\
+struct                                                                                \
+	VSInput                                                                                                            \
+	{                                                                                                                  \
+		float3 position : POSITION;                                                                                    \
+		float4 colour : COLOUR;                                                                                        \
+		float3 normal : NORMAL;                                                                                        \
+		float2 uv : UV;                                                                                                \
+		float4 tangent : TANGENT;                                                                                      \
+		uint4  jointId : JOINTID;                                                                                        \
+		float4 jointWeight : JOINTWEIGHT;                                                                                  \
+	};
 
 )";
 }
@@ -7198,8 +8152,10 @@ namespace Play3d::Graphics
 		{
 		case TextureFormat::GRAYSCALE: return DXGI_FORMAT_R8_UNORM;
 		case TextureFormat::RGBA: return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		case TextureFormat::BGRA: return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 		case TextureFormat::RGBA_F16: return DXGI_FORMAT_R16G16B16A16_FLOAT;
 		case TextureFormat::DEPTH: return DXGI_FORMAT_R32_TYPELESS;
+
 		default: return DXGI_FORMAT_R8_UNORM;
 		};
 	}
@@ -7263,6 +8219,12 @@ namespace Play3d::Graphics
 			}
 		}
 
+		if ((rDesc.m_flags & TextureFlags::ENABLE_DYNAMIC) > 0)
+		{
+			desc.CPUAccessFlags |= D3D11_CPU_ACCESS_WRITE;
+			desc.Usage = D3D11_USAGE_DYNAMIC;
+		}
+
 		std::vector<D3D11_SUBRESOURCE_DATA> subresources(desc.MipLevels);
 
 		u32 mipWidth = rDesc.m_width;
@@ -7275,6 +8237,10 @@ namespace Play3d::Graphics
 
 		HRESULT hr = pDevice->CreateTexture2D(&desc, rDesc.m_pImageData ? subresources.data() : nullptr, &m_pTexture);
 		PLAY_ASSERT(SUCCEEDED(hr));
+		if (rDesc.m_pDebugName)
+		{
+			m_pTexture->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(rDesc.m_pDebugName), rDesc.m_pDebugName);
+		}
 
 		if (bIsTexture)
 		{
@@ -7352,6 +8318,12 @@ namespace Play3d::Graphics
 			desc.Usage = D3D11_USAGE_IMMUTABLE;
 		}
 
+		if ((rDesc.m_flags & TextureFlags::ENABLE_DYNAMIC) > 0)
+		{
+			desc.CPUAccessFlags |= D3D11_CPU_ACCESS_WRITE;
+			desc.Usage = D3D11_USAGE_DYNAMIC;
+		}
+
 		std::vector<D3D11_SUBRESOURCE_DATA> subresources(desc.MipLevels * desc.ArraySize);
 
 		u32 index = 0;
@@ -7369,6 +8341,10 @@ namespace Play3d::Graphics
 
 		HRESULT hr = pDevice->CreateTexture2D(&desc, subresources.data(), &m_pTexture);
 		PLAY_ASSERT(SUCCEEDED(hr));
+		if (rDesc.m_pDebugName)
+		{
+			m_pTexture->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(rDesc.m_pDebugName), rDesc.m_pDebugName);
+		}
 
 		hr = pDevice->CreateShaderResourceView(m_pTexture.Get(), nullptr, &m_pSRV);
 		PLAY_ASSERT(SUCCEEDED(hr));
@@ -7938,10 +8914,579 @@ namespace Play3d::Resources
 
 //-------------------------------------------- Sprite/SpriteApi.cpp --------------------------------------------
 
+//----------------------------------------- Sprite/SpriteBatch_Impl.h -----------------------------------------
+
 namespace Play3d::Sprite
 {
-	void DrawSprite(SpriteAtlasId hAtlas, Graphics::TextureId texture, u32 index)
+	struct SpriteVertex
+	{
+		Vector4f posRotate;
+		Vector4f scaleOffset;
+		ColourValue colour[4];
+		u32 index[4];
+	};
+	static_assert(sizeof(SpriteVertex) % 16 == 0);
+
+	class SpriteBatch
+	{
+		friend class SpriteRenderSystem;
+	public:
+		SpriteBatch(ID3D11Device* pDevice, u32 kMaxVertexCount);
+		~SpriteBatch();
+
+		void Setup(SpriteAtlasId hAtlas, Graphics::MaterialId materialId, const Matrix4x4f& viewProject,
+				   SpriteBatchSortOrder sortOrder);
+
+		void AppendSprite(const SpriteVertex& v);
+
+		void Flush(ID3D11DeviceContext* pContext);
+
+		void Bind(ID3D11DeviceContext* pContext);
+
+		void DrawSprites(ID3D11DeviceContext* pContext);
+
+	private:
+		std::vector<SpriteVertex> m_vertices;
+
+		ComPtr<ID3D11Buffer> m_pVertexBuffer;
+
+		u32 m_maxVertexCount;
+		u32 m_instanceCount;
+
+		SpriteAtlasId m_hAtlas;
+		Graphics::MaterialId m_materialId;
+		Matrix4x4f m_viewProject;
+		SpriteBatchSortOrder m_sortOrder;
+	};
+
+	//! @brief Manages the allocation and rendering of sprite batches.
+	class SpriteRenderSystem : public Graphics::IGraphicsCallbacks
+	{
+		PLAY_SINGLETON_INTERFACE(SpriteRenderSystem);
+
+	public:
+		SpriteRenderSystem();
+		~SpriteRenderSystem();
+		void OnBeginFrame() override;
+		void OnEndFrame() override;
+
+		SpriteBatch* AllocateSpriteBatch();
+		void DrawSpriteBatch(SpriteBatch* pBatch);
+
+		Graphics::ShaderId GetSpriteVS() { return m_spriteBatchVS; }
+		Graphics::ShaderId GetSpritePS() { return m_spriteBatchPS; }
+
+	private:
+		std::vector<SpriteBatch*> m_spriteBatchRing;
+		ComPtr<ID3D11InputLayout> m_pSpriteInputLayout;
+
+		ComPtr<ID3D11RasterizerState> m_pRasterState;
+		ComPtr<ID3D11DepthStencilState> m_pDepthStencilState;
+		ComPtr<ID3D11BlendState> m_pBlendState;
+
+		Graphics::ShaderId m_spriteBatchVS;
+		Graphics::ShaderId m_spriteBatchPS;
+		u32 m_nNextSpriteBatch;
+	};
+
+}
+
+namespace Play3d::Sprite
+{
+	struct InternalState
+	{
+		SpriteBatch* m_pCurrentSpriteBatch;
+	};
+
+	static InternalState s_internalState;
+
+	SpriteAtlas::SpriteAtlas(const GridSpriteAtlasDesc& rDesc)
+		: m_spriteInfo(rDesc.gridSizeX * rDesc.gridSizeY)
+	{
+		u32 tileWidth = rDesc.imageWidth / rDesc.gridSizeX;
+		u32 tileHeight = rDesc.imageHeight / rDesc.gridSizeY;
+
+		LooseSpriteAtlasDesc looseDesc;
+		looseDesc.imageWidth = rDesc.imageWidth;
+		looseDesc.imageHeight = rDesc.imageHeight;
+		looseDesc.spriteCount = rDesc.gridSizeX * rDesc.gridSizeY;
+		std::vector<UVRect> uvRectArray(looseDesc.spriteCount);
+		looseDesc.uvArray = uvRectArray.data();
+
+		for (u32 iY = 0; iY < rDesc.gridSizeY; ++iY)
+		{
+			for (u32 iX = 0; iX < rDesc.gridSizeX; ++iX)
+			{
+				u32 i = iY * rDesc.gridSizeX + iX;
+
+				u32 posX = iX * tileWidth;
+				u32 posY = iY * tileHeight;
+
+				uvRectArray[i].x = posX;
+				uvRectArray[i].y = posY;
+				uvRectArray[i].width = tileWidth;
+				uvRectArray[i].height = tileHeight;
+			}
+		}
+
+		InternalBuild(looseDesc);
+	}
+
+	SpriteAtlas::SpriteAtlas(const LooseSpriteAtlasDesc& rDesc)
+	{
+		InternalBuild(rDesc);
+	}
+
+	void SpriteAtlas::InternalBuild(const LooseSpriteAtlasDesc& rDesc)
+	{
+		Vector4f vRecip(1.f / (f32)rDesc.imageWidth, 1.f / (f32)rDesc.imageHeight, 1.f, 1.f);
+
+		for (u32 i = 0; i < rDesc.spriteCount; ++i)
+		{
+			const UVRect& t(rDesc.uvArray[i]);
+			SpriteInfo& rInfo(m_spriteInfo[i]);
+
+			rInfo.dimPixels = t;
+			rInfo.uv[0] = Vector4f((f32)t.x, (f32)t.y, 0.f, 0.f) * vRecip;
+			rInfo.uv[1] = Vector4f((f32)t.x + (f32)t.width, (f32)t.y, 0.f, 0.f) * vRecip;
+			rInfo.uv[2] = Vector4f((f32)t.x, (f32)t.y + (f32)t.height, 0.f, 0.f) * vRecip;
+			rInfo.uv[3] = Vector4f((f32)t.x + (f32)t.width, (f32)t.y + (f32)t.height, 0.f, 0.f) * vRecip;
+
+			rInfo.offset = Vector4f(0.5f, 0.5f, 0.f, 0.f);
+		}
+		UpdateGPUBuffer();
+	}
+
+	void SpriteAtlas::UpdateGPUBuffer()
+	{
+		if (m_bufferId.IsInvalid())
+		{
+			Graphics::BufferDesc desc;
+			desc.m_bindFlags = Graphics::BufferBindFlags::SRV;
+			desc.m_flags = Graphics::BufferFlags::STRUCTURED;
+			desc.m_structureStrideBytes = sizeof(SpriteInfo);
+			desc.m_pInitialData = m_spriteInfo.data();
+			desc.m_sizeBytes = m_spriteInfo.size() * sizeof(SpriteInfo);
+
+			m_bufferId = Resources::CreateAsset<Graphics::Buffer>(desc);
+		}
+	}
+
+	Play3d::Matrix4x4f SpriteScreenMatrix()
+	{
+		auto displaySize = Graphics::GetDisplaySurfaceSize();
+		return MatrixOrthoProjectRH<f32>(0, (f32)displaySize.m_width, (f32)displaySize.m_height, 0, -10, 10);
+	}
+
+	void BeginSpriteBatch(SpriteAtlasId hAtlas, Graphics::MaterialId materialId, const Matrix4x4f& viewProject,
+						  SpriteBatchSortOrder sortOrder /*= SpriteBatchSortOrder::kNone*/)
+	{
+		if (!s_internalState.m_pCurrentSpriteBatch)
+		{
+			s_internalState.m_pCurrentSpriteBatch = SpriteRenderSystem::Instance().AllocateSpriteBatch();
+		}
+
+		s_internalState.m_pCurrentSpriteBatch->Setup(hAtlas, materialId, viewProject, sortOrder);
+	}
+
+	void DrawSprite(u32 spriteIndex, const Vector2f& vPosition, float fDepth, float fAngle, const Vector2f& vScale,
+					const Vector2f& vOffset, ColourValue colour)
+	{
+		if (s_internalState.m_pCurrentSpriteBatch)
+		{
+			SpriteVertex v;
+			v.posRotate = Vector4f(vPosition.x, vPosition.y, fDepth, fAngle);
+			v.scaleOffset = Vector4f(vScale.x, vScale.y, vOffset.x, vOffset.y);
+
+			for (u32 i = 0; i < 4; ++i)
+			{
+				v.colour[i] = colour;
+				v.index[i] = spriteIndex;
+			}
+
+			s_internalState.m_pCurrentSpriteBatch->AppendSprite(v);
+		}
+	}
+
+	void EndSpriteBatch()
+	{
+		if (s_internalState.m_pCurrentSpriteBatch)
+		{
+			SpriteRenderSystem::Instance().DrawSpriteBatch(s_internalState.m_pCurrentSpriteBatch);
+			s_internalState.m_pCurrentSpriteBatch = nullptr;
+		}
+	}
+
+	Play3d::Graphics::MaterialId CreateSpriteMaterial(const char* pName, Graphics::TextureId hTexture,
+													  bool bPointSample, bool bBlendEnable)
+	{
+
+		Graphics::ComplexMaterialDesc desc = {};
+		desc.m_state.m_cullMode = Graphics::CullMode::NONE;
+		desc.m_state.m_fillMode = Graphics::FillMode::SOLID;
+		desc.m_VertexShader = Sprite::SpriteRenderSystem::Instance().GetSpriteVS();
+		desc.m_PixelShader = Sprite::SpriteRenderSystem::Instance().GetSpritePS();
+		desc.m_texture[0] = hTexture;
+		desc.m_sampler[0] = bPointSample ? Graphics::CreatePointSampler() : Graphics::CreateLinearSampler();
+		desc.m_state.m_blendEnable = bBlendEnable;
+		desc.m_state.m_blendMode = Graphics::BlendMode::ALPHABLEND;
+		desc.m_state.m_depthEnable = false;
+
+		return Resources::CreateAsset<Graphics::Material>(desc);
+	}
+
+}
+
+//---------------------------------------- Sprite/SpriteBatch_Impl.cpp ----------------------------------------
+
+namespace Play3d::Sprite
+{
+	PLAY_SINGLETON_IMPL(SpriteRenderSystem);
+
+	SpriteBatch::SpriteBatch(ID3D11Device* pDevice, u32 kMaxVertexCount)
+		: m_maxVertexCount(kMaxVertexCount)
+		, m_instanceCount(0)
+	{
+		D3D11_BUFFER_DESC desc = {};
+		desc.ByteWidth = sizeof(SpriteVertex) * kMaxVertexCount;
+		desc.Usage = D3D11_USAGE::D3D11_USAGE_DYNAMIC;
+		desc.BindFlags = D3D11_BIND_FLAG::D3D11_BIND_VERTEX_BUFFER;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		desc.MiscFlags = 0;
+		desc.StructureByteStride = 0;
+		HRESULT hr = pDevice->CreateBuffer(&desc, NULL, &m_pVertexBuffer);
+		PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateBuffer");
+	}
+
+	SpriteBatch::~SpriteBatch()
 	{}
+
+	void SpriteBatch::AppendSprite(const SpriteVertex& v)
+	{
+		m_vertices.push_back(v);
+	}
+
+	void SpriteBatch::Flush(ID3D11DeviceContext* pContext)
+	{
+		D3D11_MAPPED_SUBRESOURCE data;
+		HRESULT hr = pContext->Map(m_pVertexBuffer.Get(), 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+		if (SUCCEEDED(hr))
+		{
+			m_instanceCount = (u32)m_vertices.size();
+
+			SpriteVertex* pVertexOut = (SpriteVertex*)data.pData;
+			memcpy(pVertexOut, m_vertices.data(), m_instanceCount * sizeof(SpriteVertex));
+
+			pContext->Unmap(m_pVertexBuffer.Get(), 0);
+
+			m_vertices.clear();
+		}
+	}
+
+	void SpriteBatch::Bind(ID3D11DeviceContext* pContext)
+	{
+		ID3D11Buffer* buffers[] = {m_pVertexBuffer.Get()};
+		UINT strides[] = {sizeof(SpriteVertex)};
+		UINT offsets[] = {0};
+
+		pContext->IASetVertexBuffers(0, 1, buffers, strides, offsets);
+	}
+
+	void SpriteBatch::DrawSprites(ID3D11DeviceContext* pContext)
+	{
+		if (m_instanceCount > 0)
+		{
+			pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+			pContext->DrawInstanced(4, m_instanceCount, 0, 0);
+			m_instanceCount = 0;
+		}
+	}
+
+	void SpriteBatch::Setup(SpriteAtlasId hAtlas, Graphics::MaterialId materialId, const Matrix4x4f& viewProject,
+							SpriteBatchSortOrder sortOrder)
+	{
+		m_hAtlas = hAtlas;
+		m_materialId = materialId;
+		m_viewProject = viewProject;
+		m_sortOrder = sortOrder;
+	}
+
+	SpriteRenderSystem::SpriteRenderSystem()
+		: m_nNextSpriteBatch(0)
+	{
+		using namespace Graphics;
+		HRESULT hr;
+
+		{
+			u32 compilationFlags = 0;
+#ifdef _DEBUG
+			compilationFlags |= ShaderCompilationFlags::DEBUG;
+#endif
+
+			ShaderCompilerDesc desc;
+			desc.m_name = "HLSL_SpriteBatchShader";
+			desc.m_hlslCode = Graphics::HLSL_SpriteBatchShader;
+			desc.m_type = ShaderType::VERTEX_SHADER;
+			desc.m_entryPoint = "VS_Main";
+			desc.m_flags = compilationFlags;
+
+			m_spriteBatchVS = Shader::Compile(desc);
+
+			desc.m_type = ShaderType::PIXEL_SHADER;
+			desc.m_entryPoint = "PS_Main";
+
+			m_spriteBatchPS = Shader::Compile(desc);
+		}
+
+		auto pDevice = Graphics_Impl::Instance().GetDevice();
+
+		{
+			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_spriteBatchVS);
+
+			D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
+				{"POSROTATE",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,offsetof(SpriteVertex, posRotate), D3D11_INPUT_PER_INSTANCE_DATA, 1},
+				{"SCALEOFFSET",0,DXGI_FORMAT_R32G32B32A32_FLOAT, 0,offsetof(SpriteVertex, scaleOffset),D3D11_INPUT_PER_INSTANCE_DATA,1},
+				{"COLOUR",0,DXGI_FORMAT_R8G8B8A8_UNORM, 0,offsetof(SpriteVertex, colour),D3D11_INPUT_PER_INSTANCE_DATA, 1},
+				{"INDEX",0,DXGI_FORMAT_R8G8B8A8_UINT, 0,offsetof(SpriteVertex, index),D3D11_INPUT_PER_INSTANCE_DATA, 1},
+			};
+
+			hr = pDevice->CreateInputLayout(vertexFormat, 4, pVS->GetByteCode(),pVS->GetByteCodeSize(),&m_pSpriteInputLayout);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateInputLayout");
+		}
+
+		{
+			D3D11_RASTERIZER_DESC desc = {};
+			desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
+			desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
+			desc.FrontCounterClockwise = FALSE;
+			desc.DepthBias = 0;
+			desc.DepthBiasClamp = 0.f;
+			desc.SlopeScaledDepthBias = 0.f;
+			desc.DepthClipEnable = TRUE;
+			desc.ScissorEnable = FALSE;
+			desc.MultisampleEnable = FALSE;
+			desc.AntialiasedLineEnable = FALSE;
+			hr = pDevice->CreateRasterizerState(&desc, &m_pRasterState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid RasterState");
+		}
+		{
+			D3D11_DEPTH_STENCIL_DESC desc = {};
+			desc.DepthEnable = TRUE;
+			desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
+			desc.DepthFunc = D3D11_COMPARISON_FUNC::D3D11_COMPARISON_LESS;
+			desc.StencilEnable = FALSE;
+			hr = pDevice->CreateDepthStencilState(&desc, &m_pDepthStencilState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid DepthStencilState");
+		}
+		{
+			D3D11_BLEND_DESC desc = {};
+			desc.AlphaToCoverageEnable = FALSE;
+			desc.IndependentBlendEnable = FALSE;
+			desc.RenderTarget[0].BlendEnable = FALSE;
+			desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+			desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+			desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+			desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+			desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+			hr = pDevice->CreateBlendState(&desc, &m_pBlendState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid BlendState");
+		}
+	}
+
+	SpriteRenderSystem::~SpriteRenderSystem()
+	{
+		for (auto& it : m_spriteBatchRing)
+		{
+			PLAY_SAFE_DELETE(it);
+		}
+	}
+
+	void SpriteRenderSystem::OnBeginFrame()
+	{
+		m_nNextSpriteBatch = 0;
+	}
+
+	void SpriteRenderSystem::OnEndFrame()
+	{}
+
+	SpriteBatch* SpriteRenderSystem::AllocateSpriteBatch()
+	{
+		using namespace Graphics;
+		SpriteBatch* pBatch = nullptr;
+		if (m_nNextSpriteBatch < m_spriteBatchRing.size())
+		{
+			pBatch = m_spriteBatchRing[m_nNextSpriteBatch];
+			++m_nNextSpriteBatch;
+		}
+		else
+		{
+			auto pDevice = Graphics_Impl::Instance().GetDevice();
+			pBatch = new SpriteBatch(pDevice, 0x10000);
+			m_spriteBatchRing.push_back(pBatch);
+			++m_nNextSpriteBatch;
+		}
+		PLAY_ASSERT(pBatch);
+		return pBatch;
+	}
+
+	void SpriteRenderSystem::DrawSpriteBatch(SpriteBatch* pBatch)
+	{
+		using namespace Graphics;
+		PLAY_ASSERT(pBatch);
+
+		Graphics_Impl::Instance().SetWorldMatrix(pBatch->m_viewProject);
+		Graphics_Impl::Instance().UpdateConstantBuffers();
+		ID3D11DeviceContext* pDC = Graphics_Impl::Instance().GetDeviceContext();
+
+		pBatch->Flush(pDC);
+
+		Graphics_Impl::Instance().BindFrameConstants();
+
+		Graphics_Impl::Instance().SetMaterial(pBatch->m_materialId);
+		Graphics_Impl::Instance().BindActiveMaterial(pDC);
+
+		pDC->IASetInputLayout(m_pSpriteInputLayout.Get());
+
+		pBatch->Bind(pDC);
+
+		constexpr u32 kAtlasBindSlot = Graphics::kGlobalTextureSlotStart;
+
+		SpriteAtlas* pAtlas = Resources::ResourceManager<SpriteAtlas>::Instance().GetPtr(pBatch->m_hAtlas);
+		if (pAtlas)
+		{
+			Buffer* pAtlasBuffer = Resources::ResourceManager<Buffer>::Instance().GetPtr(pAtlas->GetBuffer());
+			if (pAtlasBuffer)
+			{
+				ID3D11ShaderResourceView* srvs[] = {pAtlasBuffer->GetSRV()};
+				pDC->VSSetShaderResources(kAtlasBindSlot, 1, srvs);
+			}
+		}
+
+		pBatch->DrawSprites(pDC);
+	}
+
+}
+
+//-------------------------------------------- System/Packfile.cpp --------------------------------------------
+
+namespace Play3d::Packfile
+{
+
+	PackedFileManager* PackedFileManager::ms_pInstance = nullptr;
+
+	PackedFileManager::~PackedFileManager()
+	{
+		for (size_t i = 0; i < m_packedFiles.size(); i++)
+		{
+			delete m_packedFiles[i];
+		}
+		m_packedFiles.clear();
+	}
+
+	void PackedFileManager::Initialise()
+	{
+		if (!ms_pInstance)
+		{
+			ms_pInstance = new PackedFileManager();
+		}
+	}
+
+	void PackedFileManager::Destroy()
+	{
+		delete ms_pInstance;
+		ms_pInstance = nullptr;
+	}
+
+	void PackedFileManager::AddPackFile(const char* pFilePath)
+	{
+		if (System::CheckFileExistsOnDisk(pFilePath))
+		{
+			size_t sizeBytes;
+			const void* packFileData = System::LoadFileData(pFilePath, sizeBytes);
+			PackedFile* pNewFile = new PackedFile(packFileData, sizeBytes);
+
+			m_packedFiles.push_back(pNewFile);
+		}
+	}
+
+	const void* PackedFileManager::FindFile(const char* pFilePath, size_t& sizeBytes)
+	{
+		const void* file = nullptr;
+		for (auto packedFile : m_packedFiles)
+		{
+			file = packedFile->GetFile(pFilePath, sizeBytes);
+			if (file != nullptr)
+				break;
+		}
+
+		return file;
+	}
+
+	bool PackedFileManager::CheckPointerIsInPack(const void* ptr)
+	{
+		for (auto packedFile : m_packedFiles)
+		{
+			if (packedFile->CheckPointerIsInPack(ptr))
+				return true;
+		}
+		return false;
+	}
+
+	PackedFile::PackedFile(const void* pData, size_t sizeBytes)
+	{
+		m_pRawData = pData;
+		m_pHeader = static_cast<const PackedFileHeader*>(m_pRawData);
+		m_pDataBlock = reinterpret_cast<const uint8_t*>(static_cast<const uint8_t*>(m_pRawData) + m_pHeader->dataBlockOffset);
+		m_pDirBlock = reinterpret_cast<const PackedFileEntry*>(static_cast<const uint8_t*>(m_pRawData) + m_pHeader->dirBlockOffset);
+		m_totalSizeBytes = sizeBytes;
+	}
+
+	PackedFile::~PackedFile()
+	{
+		System::ReleaseFileData(m_pRawData);
+		m_pRawData = nullptr;
+		m_pHeader = nullptr;
+		m_pDataBlock = nullptr;
+		m_pDirBlock = nullptr;
+	}
+
+	const void* PackedFile::GetFile(const char* pFilePath, size_t& sizeBytes)
+	{
+		for (size_t i = 0; i < m_pHeader->dirEntryCount; ++i)
+		{
+			if (_stricmp(m_pDirBlock[i].path, pFilePath) == 0)
+			{
+				sizeBytes = m_pDirBlock[i].dataSize;
+				return m_pDataBlock + m_pDirBlock[i].offset;
+			}
+		}
+
+		sizeBytes = 0;
+		return nullptr;
+	}
+
+	const size_t PackedFile::GetNumberOfFilesInPackFile()
+	{
+		return m_pHeader->dirEntryCount;
+	}
+
+	const PackedFileEntry* PackedFile::GetFileInfoAtIndex(size_t index)
+	{
+		return &m_pDirBlock[index];
+	}
+
+	bool PackedFile::CheckPointerIsInPack(const void* ptr)
+	{
+		if (ptr == m_pRawData)
+			return false;
+
+		uintptr_t blockOffset = (uintptr_t)ptr - (uintptr_t)m_pRawData;
+
+		return (blockOffset < m_totalSizeBytes);
+	}
+
 }
 
 //-------------------------------------------- System/SystemApi.cpp --------------------------------------------
@@ -7997,13 +9542,31 @@ namespace Play3d::System
 	{
 		if (!SystemImpl::ms_pInstance)
 		{
+			HRESULT hr;
+			hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+			if (FAILED(hr))
+			{
+				Debug::Printf("COM Init Failed with hr=0x%x", hr);
+				return hr;
+			}
+
 			SystemImpl::ms_pInstance = new SystemImpl;
+
+			Packfile::PackedFileManager::Initialise();
 
 			Graphics::Graphics_Impl::Initialise(rDesc);
 			Input::Input_Impl::Initialise();
 			Audio::Audio_Impl::Initialise();
 
-			Graphics::Graphics_Impl::Instance().PostInitialise();
+			Graphics::PrimitiveRenderSystem::Initialise();
+			UI::FontRenderSystem::Initialise();
+			Sprite::SpriteRenderSystem::Initialise();
+
+			auto& rGraphicsImpl(Graphics::Graphics_Impl::Instance());
+			rGraphicsImpl.PostInitialise();
+			rGraphicsImpl.RegisterGraphicsCallbacks(&Graphics::PrimitiveRenderSystem::Instance());
+			rGraphicsImpl.RegisterGraphicsCallbacks(&UI::FontRenderSystem::Instance());
+			rGraphicsImpl.RegisterGraphicsCallbacks(&Sprite::SpriteRenderSystem::Instance());
 		}
 
 		return RESULT_OK;
@@ -8047,16 +9610,26 @@ namespace Play3d::System
 		{
 			Graphics::Graphics_Impl::Instance().Flush();
 
+			Resources::ResourceManager<UI::Font>::Instance().ReleaseAll();
+			Resources::ResourceManager<Graphics::Mesh>::Instance().ReleaseAll();
 			Resources::ResourceManager<Graphics::Material>::Instance().ReleaseAll();
 			Resources::ResourceManager<Graphics::Shader>::Instance().ReleaseAll();
-			Resources::ResourceManager<Graphics::Mesh>::Instance().ReleaseAll();
-			Resources::ResourceManager<UI::Font>::Instance().ReleaseAll();
+			Resources::ResourceManager<Graphics::Buffer>::Instance().ReleaseAll();
+			Resources::ResourceManager<Graphics::Texture>::Instance().ReleaseAll();
+			Resources::ResourceManager<Graphics::Sampler>::Instance().ReleaseAll();
 
+			UI::FontRenderSystem::Destroy();
+			Sprite::SpriteRenderSystem::Destroy();
+			Graphics::PrimitiveRenderSystem::Destroy();
 			Audio::Audio_Impl::Destroy();
 			Input::Input_Impl::Destroy();
 			Graphics::Graphics_Impl::Destroy();
 
+			Packfile::PackedFileManager::Destroy();
+
 			PLAY_SAFE_DELETE(SystemImpl::ms_pInstance);
+
+			CoUninitialize();
 		}
 		return RESULT_OK;
 	}
@@ -8075,30 +9648,49 @@ namespace Play3d::System
 
 	bool CheckFileExists(const char* filePath)
 	{
-		DWORD attrib = GetFileAttributesA(filePath);
-		return (attrib != INVALID_FILE_ATTRIBUTES
-			&& !(attrib & FILE_ATTRIBUTE_DIRECTORY)
-			);
+		size_t sizeOut = 0;
+		const void* pMemoryRet = nullptr;
+
+		pMemoryRet = Packfile::PackedFileManager::Instance().FindFile(filePath, sizeOut);
+
+		if (pMemoryRet != nullptr)
+			return true;
+
+		if (CheckFileExistsOnDisk(filePath))
+			return true;
+
+		return false;
 	}
 
-	void* LoadFileData(const char* filePath, size_t& sizeOut)
+	bool CheckFileExistsOnDisk(const char* filePath)
+	{
+		DWORD attrib = GetFileAttributesA(filePath);
+		return (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
+	}
+
+	const void* LoadFileData(const char* filePath, size_t& sizeOut)
 	{
 		sizeOut = 0;
-		void* pMemoryRet = nullptr;
+		const void* pMemoryRet = nullptr;
 
-		if (!CheckFileExists(filePath))
+		pMemoryRet = Packfile::PackedFileManager::Instance().FindFile(filePath, sizeOut);
+
+		if (pMemoryRet != nullptr)
+		{
+			Debug::Printf("System::LoadFileData: From Pack: %s\n", filePath);
+			return pMemoryRet;
+		}
+
+		Debug::Printf("System::LoadFileData: From Disk: %s\n", filePath);
+
+		if (!CheckFileExistsOnDisk(filePath))
 		{
 			Debug::Printf("ERROR: File does not exist! path='%s'\n", filePath);
 			return nullptr;
 		}
 
-		HANDLE hFile = CreateFileA(filePath,
-								   GENERIC_READ,
-								   FILE_SHARE_READ | FILE_SHARE_WRITE,
-								   NULL,
-								   OPEN_EXISTING,
-								   FILE_ATTRIBUTE_NORMAL,
-								   NULL);
+		HANDLE hFile =
+			CreateFileA(filePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hFile != INVALID_HANDLE_VALUE)
 		{
 			LARGE_INTEGER size;
@@ -8128,14 +9720,23 @@ namespace Play3d::System
 		return pMemoryRet;
 	}
 
-	void ReleaseFileData(void* pMemory)
+	void ReleaseFileData(const void* pMemory)
 	{
+		if (Packfile::PackedFileManager::Instance().CheckPointerIsInPack(pMemory))
+		{
+			return;
+		}
+
 		if (pMemory)
 		{
-			_aligned_free(pMemory);
+			_aligned_free(const_cast<void*>(pMemory));
 		}
 	}
+	void AddPackFile(const char* filePath)
+	{
 
+		Packfile::PackedFileManager::Instance().AddPackFile(filePath);
+	}
 }
 
 //! This simplifies the WinMain entry point function as PlayMain()
@@ -8147,15 +9748,41 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 	return PlayMain();
 }
 #endif
-
 //------------------------------------------------ TypesApi.cpp ------------------------------------------------
 
 //------------------------------------------------ UI/Font.cpp ------------------------------------------------
 
 namespace Play3d::UI
 {
+	PLAY_SINGLETON_IMPL(FontRenderSystem);
+
 	Font::Font(const FontDesc& rDesc)
 	{
+		HANDLE hFontResource = NULL;
+
+		if (!rDesc.m_fontPath.empty())
+		{
+			size_t sizeBytes = 0;
+			const void* pFontFileData = System::LoadFileData(rDesc.m_fontPath.c_str(), sizeBytes);
+			if (pFontFileData && sizeBytes)
+			{
+				DWORD numFontsAdded;
+
+				hFontResource = AddFontMemResourceEx(const_cast<PVOID>(pFontFileData), (DWORD)sizeBytes, 0, &numFontsAdded);
+				if (numFontsAdded > 0)
+				{
+					Debug::Printf("Font file %s added %u fonts\n", rDesc.m_fontPath.c_str(), numFontsAdded);
+				}
+				else
+				{
+					Debug::Printf("Font file %s failed to load!\n", rDesc.m_fontPath.c_str());
+				}
+
+				System::ReleaseFileData(pFontFileData);
+				pFontFileData = nullptr;
+			}
+		}
+
 		HDC hdc = CreateCompatibleDC(NULL);
 		HBITMAP hBitmap = CreateCompatibleBitmap(hdc, 1, 1);
 		SelectObject(hdc, hBitmap);
@@ -8186,8 +9813,8 @@ namespace Play3d::UI
 			m_glyphMap[rDesc.m_charSet[i]] = (u8)i;
 		}
 
-		u32 scratchSizeBytes = 32 * 32;
-		u8* pScratchImage = new u8[scratchSizeBytes];
+		constexpr u32 kScratchSizeBytes = 256 * 256;
+		u8* pScratchImage = new u8[kScratchSizeBytes];
 
 		u32 imageWidth = rDesc.m_textureWidth;
 		u32 imageHeight = rDesc.m_textureHeight;
@@ -8199,7 +9826,7 @@ namespace Play3d::UI
 		GLYPHMETRICS glyphMetrics = {};
 		MAT2 mat{{0, 1}, {0, 0}, {0, 0}, {0, 1}};
 
-		const u32 tilePadding = 1;
+		constexpr u32 tilePadding = 1;
 		u32 tilePosX = tilePadding;
 		u32 tilePosY = tilePadding;
 		u32 maxY = 0;
@@ -8219,7 +9846,7 @@ namespace Play3d::UI
 										  charInSet,
 										  GGO_GRAY8_BITMAP,
 										  &glyphMetrics,
-										  scratchSizeBytes,
+										  kScratchSizeBytes,
 										  pScratchImage,
 										  &mat);
 			if (GDI_ERROR != result)
@@ -8336,15 +9963,91 @@ namespace Play3d::UI
 			HRESULT hr = pDevice->CreateRasterizerState(&desc, &m_pRasterState);
 			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Create Font Raster State");
 		}
+
+		if (hFontResource)
+		{
+			RemoveFontMemResourceEx(hFontResource);
+		}
 	}
 
 	Font::~Font()
 	{}
 
+	void Font::DrawCharacterArray(ID3D11DeviceContext* pDC, const Vector2f& position, const char* pCharArray,
+								  const ColourValue* pColourArray, u32 lines, u32 columns)
+	{
+		u32 blockSize = lines * columns;
+
+		D3D11_MAPPED_SUBRESOURCE data;
+		HRESULT hr = pDC->Map(m_pVertexBuffer.Get(), 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+		u32 vertexCount = 0;
+		if (SUCCEEDED(hr))
+		{
+			FontVertex* pVertex = (FontVertex*)data.pData;
+
+			Vector2f cursor(position);
+
+			for (u32 i = 0; i < lines; ++i)
+			{
+				for (u32 j = 0; j < columns; ++j)
+				{
+					u32 index = i * columns + j;
+					u8 glyphIndex = m_glyphMap[pCharArray[index]];
+					if (0xFF == glyphIndex)
+					{
+						cursor.x += m_defaultAdvance;
+						continue;
+					}
+
+					const GlyphData& glyph(m_glyphData[glyphIndex]);
+
+					Vector2f v0 = cursor + glyph.offset0;
+					Vector2f v1 = cursor + glyph.offset1;
+
+					pVertex[0].position = Vector2f(v0.x, v0.y);
+					pVertex[1].position = Vector2f(v1.x, v0.y);
+					pVertex[2].position = Vector2f(v1.x, v1.y);
+					pVertex[3].position = Vector2f(v0.x, v0.y);
+					pVertex[4].position = Vector2f(v1.x, v1.y);
+					pVertex[5].position = Vector2f(v0.x, v1.y);
+
+					pVertex[0].uv = Vector2f(glyph.uv0.x, glyph.uv0.y);
+					pVertex[1].uv = Vector2f(glyph.uv1.x, glyph.uv0.y);
+					pVertex[2].uv = Vector2f(glyph.uv1.x, glyph.uv1.y);
+					pVertex[3].uv = Vector2f(glyph.uv0.x, glyph.uv0.y);
+					pVertex[4].uv = Vector2f(glyph.uv1.x, glyph.uv1.y);
+					pVertex[5].uv = Vector2f(glyph.uv0.x, glyph.uv1.y);
+
+					ColourValue colour(pColourArray[index]);
+					pVertex[0].colour = colour;
+					pVertex[1].colour = colour;
+					pVertex[2].colour = colour;
+					pVertex[3].colour = colour;
+					pVertex[4].colour = colour;
+					pVertex[5].colour = colour;
+
+					pVertex += 6;
+
+					cursor.x += glyph.xAdvance;
+
+					vertexCount += 6;
+				}
+
+				cursor.y += 25;
+				cursor.x = position.x;
+			}
+
+			pDC->Unmap(m_pVertexBuffer.Get(), 0);
+		}
+
+		Draw_Internal(pDC, vertexCount);
+	}
+
 	void Font::DrawString(ID3D11DeviceContext* pDC, const Vector2f& position, ColourValue colour, std::string_view text)
 	{
 		D3D11_MAPPED_SUBRESOURCE data;
 		HRESULT hr = pDC->Map(m_pVertexBuffer.Get(), 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+		u32 vertexCount = 0;
 		if (SUCCEEDED(hr))
 		{
 			FontVertex* pVertex = (FontVertex*)data.pData;
@@ -8389,12 +10092,19 @@ namespace Play3d::UI
 				pVertex += 6;
 
 				cursor.x += glyph.xAdvance;
+
+				vertexCount += 6;
 			}
 
 			pDC->Unmap(m_pVertexBuffer.Get(), 0);
 		}
 
-		Graphics::Graphics_Impl::Instance().TempPrepFontDraw();
+		Draw_Internal(pDC, vertexCount);
+	}
+
+	void Font::Draw_Internal(ID3D11DeviceContext* pDC, u32 vertexCount)
+		{
+		FontRenderSystem::Instance().PrepFontDraw();
 
 		pDC->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -8411,8 +10121,104 @@ namespace Play3d::UI
 
 		pDC->RSSetState(m_pRasterState.Get());
 
-		pDC->Draw((u32)text.size() * 6, 0);
+		pDC->Draw(vertexCount, 0);
 	}
+
+	//! @brief Manages the shared font rendering code for all fonts.
+	FontRenderSystem::FontRenderSystem()
+	{
+		using namespace Graphics;
+		HRESULT hr;
+
+		{
+			u32 compilationFlags = 0;
+#ifdef _DEBUG
+			compilationFlags |= ShaderCompilationFlags::DEBUG;
+#endif
+
+			ShaderCompilerDesc desc;
+			desc.m_name = "HLSL_FontShader";
+			desc.m_hlslCode = HLSL_FontShader;
+			desc.m_type = ShaderType::VERTEX_SHADER;
+			desc.m_entryPoint = "VS_Main";
+			desc.m_flags = compilationFlags;
+
+			m_fontVS = Shader::Compile(desc);
+
+			desc.m_type = ShaderType::PIXEL_SHADER;
+			desc.m_entryPoint = "PS_Main";
+
+			m_fontPS = Shader::Compile(desc);
+		}
+
+		auto pDevice = Graphics_Impl::Instance().GetDevice();
+
+		{
+			Shader* pVS = Resources::ResourceManager<Shader>::Instance().GetPtr(m_fontVS);
+
+				D3D11_INPUT_ELEMENT_DESC vertexFormat[] = {
+					{"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(UI::FontVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0},
+					{"UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(UI::FontVertex, uv), D3D11_INPUT_PER_VERTEX_DATA, 0},
+					{"COLOUR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(UI::FontVertex, colour), D3D11_INPUT_PER_VERTEX_DATA, 0},
+				};
+
+				hr = pDevice->CreateInputLayout(vertexFormat, 3, pVS->GetByteCode(), pVS->GetByteCodeSize(), &m_pFontInputLayout);
+				PLAY_ASSERT_MSG(SUCCEEDED(hr), "CreateInputLayout");
+		}
+
+		{
+			D3D11_DEPTH_STENCIL_DESC desc = {};
+			desc.DepthEnable = FALSE;
+			desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
+			desc.StencilEnable = FALSE;
+			hr = pDevice->CreateDepthStencilState(&desc, &m_pDepthStencilState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid DepthStencilState");
+		}
+		{
+			D3D11_BLEND_DESC desc = {};
+			desc.AlphaToCoverageEnable = FALSE;
+			desc.IndependentBlendEnable = FALSE;
+			desc.RenderTarget[0].BlendEnable = TRUE;
+			desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+			desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+			desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+			desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+			desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+			hr = pDevice->CreateBlendState(&desc, &m_pBlendState);
+			PLAY_ASSERT_MSG(SUCCEEDED(hr), "Invalid BlendState");
+		}
+	}
+
+	FontRenderSystem::~FontRenderSystem()
+	{}
+
+	void FontRenderSystem::OnBeginFrame()
+	{}
+
+	void FontRenderSystem::OnEndFrame()
+	{}
+
+	void FontRenderSystem::PrepFontDraw()
+	{
+		Graphics::Graphics_Impl::Instance().ClearStateCache();
+		Graphics::Graphics_Impl::Instance().UpdateConstantBuffers();
+
+		ID3D11DeviceContext* pDC = Graphics::Graphics_Impl::Instance().GetDeviceContext();
+
+		Graphics::Shader* pVS = Resources::ResourceManager<Graphics::Shader>::Instance().GetPtr(m_fontVS);
+		Graphics::Shader* pPS = Resources::ResourceManager<Graphics::Shader>::Instance().GetPtr(m_fontPS);
+		pVS->Bind(pDC);
+		pPS->Bind(pDC);
+
+		Graphics::Graphics_Impl::Instance().BindUIFrameConstants();
+
+		pDC->IASetInputLayout(m_pFontInputLayout.Get());
+		pDC->OMSetDepthStencilState(m_pDepthStencilState.Get(), 0u);
+		pDC->OMSetBlendState(m_pBlendState.Get(), NULL, 0xffffffff);
+	}
+
 }
 
 //------------------------------------------------ UI/UIApi.cpp ------------------------------------------------
@@ -8472,6 +10278,18 @@ namespace Play3d::UI
 	{
 		return false;
 	}
+
+	void DrawCharacterArray(FontId hFont, const Vector2f& position, const char* pCharArray,
+							const ColourValue* pColourArray, u32 lines, u32 columns)
+	{
+		Font* pFont = Resources::ResourceManager<Font>::Instance().GetPtr(hFont);
+		if (pFont)
+		{
+			auto* pDC = Graphics::Graphics_Impl::Instance().GetDeviceContext();
+			pFont->DrawCharacterArray(pDC, position, pCharArray, pColourArray, lines, columns);
+		}
+	}
+
 }
 
 ////////////////// END IMPLEMENTATION SECTION ////////////////////////////
