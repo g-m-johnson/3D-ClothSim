@@ -16,8 +16,10 @@ ClothPoint::~ClothPoint()
 {
 }
 
-void ClothPoint::Update(float dT)
+void ClothPoint::Update()
 {
+	float dT = System::GetDeltaTime();
+
 	Vector3f cursorToPoint = m_position - Vector3f(Mouse::Instance().GetMousePos(), 0);
 	float cursorSize = Mouse::Instance().GetMouseCursorSize();
 	bool isSelected = lengthSqr(cursorToPoint) < (cursorSize * cursorSize);

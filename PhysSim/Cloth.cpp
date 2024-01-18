@@ -6,40 +6,17 @@ Cloth::Cloth(int width, int height, int spacing)
 	: m_width(width)
 	, m_height(height)
 	, m_spacing(spacing)
-{
-	for (int y = 0; y < height; y++)
-	{
-		for (int x = 0; x < width; x++)
-		{
-			ClothPoint* point = new ClothPoint(this, Vector3f((x * spacing), (y * spacing), 0));
-
-			if (y != 0)
-			{
-				ClothPoint* upPoint = m_vPoints[x + (y - 1) * (width)];
-				ClothStick* stick = new ClothStick(point, upPoint);
-				upPoint->AddStick(stick, 1);
-				point->AddStick(stick, 1);
-				m_vSticks.push_back(stick);
-			}
-
-			if (y == 0)
-			{
-				point->SetIsPinned(true);
-			}
-
-			m_vPoints.push_back(point);
-		}
-	}
-}
+{}
 
 Cloth::~Cloth()
 {
-	//Destroy();
+	Destroy();
 }
 
 void Cloth::Initialise()
 {
 	CreateClothMesh();
+	CreatePointsAndSticks();
 }
 
 
@@ -53,7 +30,7 @@ void Cloth::UpdateBuffer()
 	HRESULT hr = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
 	if (SUCCEEDED(hr))
 	{
-		memcpy(data.pData, &m_positions, sizeof(Vector3f));
+		memcpy(data.pData, m_positions.data(), sizeof(Vector3f) * m_positions.size());
 		pDC->Unmap(pBuffer, 0);
 	}
 }
@@ -75,7 +52,7 @@ void Cloth::CreateClothMesh()
 			positions[index] = Vector3f(j, i, 0);
 		}
 	}
-
+	m_positions = positions;
 
 	/// CALCULATE INDICES ------------------------------------------------------
 
@@ -146,17 +123,46 @@ void Cloth::CreateClothMesh()
 	m_clothMesh = Resources::CreateAsset<Graphics::Mesh>(desc);
 }
 
-
-void Cloth::Update(float dT)
+void Cloth::CreatePointsAndSticks()
 {
-	for (ClothPoint* p : m_vPoints)
+	for (Vector3f p : m_positions)
 	{
-		p->Update(dT);
+		ClothPoint* point = new ClothPoint(this, p);
+		
+		if (p.y != 0)
+		{
+			ClothPoint* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
+			ClothStick* stick = new ClothStick(point, upPoint);
+			upPoint->AddStick(stick, 1);
+			point->AddStick(stick, 1);
+			m_vSticks.push_back(stick);
+		}
+
+		if (p.y == m_height - 1)
+		{
+			point->SetIsPinned(true);
+		}
+		
+		m_vPoints.push_back(point);
 	}
+
+}
+
+
+void Cloth::Update()
+{
+	for (int i = 0; i < m_vPoints.size(); i++)
+	{
+		m_vPoints[i]->Update();
+		m_positions[i] = m_vPoints[i]->GetPosition();
+	}
+
 	for (ClothStick* s : m_vSticks)
 	{
 		s->Update();
 	}
+
+	UpdateBuffer();
 }
 
 void Cloth::Render()

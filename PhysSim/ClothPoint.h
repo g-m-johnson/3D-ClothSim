@@ -11,7 +11,7 @@ public:
 	ClothPoint(Cloth* cloth, Vector3f pos);
 	~ClothPoint();
 
-	void Update(float dT);
+	void Update();
 
 	void AddStick(ClothStick* stick, int index);
 

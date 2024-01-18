@@ -63,10 +63,13 @@ int PlayMain()
 
 		Demo::UpdateDebugCamera();
 		Demo::SetDebugCameraMatrices();
+		Demo::DrawDebugGrid();
+
+		g_pCloth->Update();
 
 		// Set Material And Draw the mesh
-		//Graphics::SetMaterial(wireframeMaterial);
-		Graphics::SetMaterial(solidMaterial);
+		Graphics::SetMaterial(wireframeMaterial);
+		//Graphics::SetMaterial(solidMaterial);
 		Graphics::DrawMesh(g_pCloth->GetClothMesh(), MatrixTranslate<f32>(0.f, 0.f, 0.f));
 
 		System::EndFrame();

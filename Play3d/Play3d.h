@@ -2,8 +2,8 @@
 //      Copyright (C) Sumo Digital Ltd. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////
 
-#define PLAY3D_VERSION "v1.0.0-69-g96c14ee"
-#define PLAY3D_BUILD_TIME "2023-12-11 11:46:40.501553"
+#define PLAY3D_VERSION "v1.0.0-70-g187e357"
+#define PLAY3D_BUILD_TIME "2024-01-18 10:20:49.214740"
 
 #pragma once
 #ifndef __PLAY3D__
@@ -1831,7 +1831,7 @@ namespace Play3d::Graphics
 		void AddSubmesh(const SubmeshDesc& rSubMesh) { m_subMeshes.push_back(rSubMesh); }
 		const SubmeshDesc& GetSubmesh(u32 index) const { return m_subMeshes.at(index); }
 
-		ID3D11Buffer* GetStreamBufferPtr(int str) { return m_streamBuffers[str]; }
+		ID3D11Buffer* GetStreamBufferPtr(int st) {return m_streamBuffers[st]; }
 
 	private:
 		friend class Graphics_Impl;
@@ -2726,9 +2726,15 @@ namespace Play3d::Graphics
 	//! @brief Adds a windows message callback.
 	void RegisterWindowCallback(WindowCallback callback);
 
+	//! @brief Returns the underlying win32 handle to the main window.
 	HWND GetWindowHandle();
 
+	//! @brief returns the underlying DirectX11 Device object
+	ID3D11Device* GetDevice();
+
+	//! @brief returns the underlying DirectX11 Device Context object
 	ID3D11DeviceContext* GetDeviceContext();
+
 }
 
 //------------------------------------------------- UI/UIApi.h -------------------------------------------------
@@ -4924,14 +4930,19 @@ namespace Play3d::Graphics
 		return Graphics_Impl::Instance().GetHWnd();
 	}
 
-	ID3D11DeviceContext* GetDeviceContext()
-	{
-		return Graphics::Graphics_Impl::Instance().GetDeviceContext();
-	}
-
 	void SetFullscreenMode(bool bEnable)
 	{
 		return Graphics_Impl::Instance().SetFullscreenMode(bEnable);
+	}
+
+	ID3D11Device* GetDevice()
+	{
+		return Graphics_Impl::Instance().GetDevice();
+	}
+
+	ID3D11DeviceContext* GetDeviceContext()
+	{
+		return Graphics_Impl::Instance().GetDeviceContext();
 	}
 
 }
