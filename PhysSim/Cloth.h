@@ -22,8 +22,12 @@ public:
 	const float GetDrag() const {return m_drag;}
 	const float GetElasticity() const {return m_elasticity;}
 
+	void GetBuffer();
+
 private:
 	void CreateClothMesh();
+
+	std::vector<Vector3f> m_positions;
 
 	Vector3f m_gravity{ 0.0f, 981.0f, 0.0f };
 	

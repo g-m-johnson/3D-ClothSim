@@ -12,15 +12,7 @@ Cloth::Cloth(int width, int height, int spacing)
 		for (int x = 0; x < width; x++)
 		{
 			ClothPoint* point = new ClothPoint(this, Vector3f((x * spacing), (y * spacing), 0));
-			
-			if (x != 0)
-			{
-				ClothPoint* leftPoint = m_vPoints[m_vPoints.size() - 1];
-				ClothStick* stick = new ClothStick(point, leftPoint);
-				leftPoint->AddStick(stick, 0);
-				point->AddStick(stick, 0);
-				m_vSticks.push_back(stick);
-			}
+
 			if (y != 0)
 			{
 				ClothPoint* upPoint = m_vPoints[x + (y - 1) * (width)];
@@ -42,6 +34,7 @@ Cloth::Cloth(int width, int height, int spacing)
 
 Cloth::~Cloth()
 {
+	//Destroy();
 }
 
 void Cloth::Initialise()
@@ -49,6 +42,21 @@ void Cloth::Initialise()
 	CreateClothMesh();
 }
 
+
+void Cloth::UpdateBuffer()
+{
+	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
+	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(0);
+
+	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
+	D3D11_MAPPED_SUBRESOURCE data;
+	HRESULT hr = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+	if (SUCCEEDED(hr))
+	{
+		memcpy(data.pData, &m_positions, sizeof(Vector3f));
+		pDC->Unmap(pBuffer, 0);
+	}
+}
 
 void Cloth::CreateClothMesh()
 {
@@ -116,6 +124,7 @@ void Cloth::CreateClothMesh()
 	streamInfos[0].m_type = Graphics::StreamType::POSITION;
 	streamInfos[0].m_pData = positions.data();
 	streamInfos[0].m_dataSize = positions.size() * sizeof(Vector3f);
+	streamInfos[0].m_flags = Graphics::StreamFlags::DYNAMIC_STREAM;
 
 	streamInfos[1].m_type = Graphics::StreamType::COLOUR;
 	streamInfos[1].m_pData = colours.data();

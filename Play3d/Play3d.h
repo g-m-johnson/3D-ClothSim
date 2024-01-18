@@ -1831,6 +1831,8 @@ namespace Play3d::Graphics
 		void AddSubmesh(const SubmeshDesc& rSubMesh) { m_subMeshes.push_back(rSubMesh); }
 		const SubmeshDesc& GetSubmesh(u32 index) const { return m_subMeshes.at(index); }
 
+		ID3D11Buffer* GetStreamBufferPtr(int str) { return m_streamBuffers[str]; }
+
 	private:
 		friend class Graphics_Impl;
 		std::vector<StreamInfo> m_streamInfos;
@@ -2726,6 +2728,7 @@ namespace Play3d::Graphics
 
 	HWND GetWindowHandle();
 
+	ID3D11DeviceContext* GetDeviceContext();
 }
 
 //------------------------------------------------- UI/UIApi.h -------------------------------------------------
@@ -4919,6 +4922,11 @@ namespace Play3d::Graphics
 	HWND GetWindowHandle()
 	{
 		return Graphics_Impl::Instance().GetHWnd();
+	}
+
+	ID3D11DeviceContext* GetDeviceContext()
+	{
+		return Graphics::Graphics_Impl::Instance().GetDeviceContext();
 	}
 
 	void SetFullscreenMode(bool bEnable)
