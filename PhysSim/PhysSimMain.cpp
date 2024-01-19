@@ -6,7 +6,6 @@ using namespace Play3d;
 
 #include "PhysSimMain.h"
 #include "Cloth.h"
-#include "Mouse.h"
 
 Cloth* g_pCloth = new Cloth(39, 20, 20);
 
@@ -68,8 +67,8 @@ int PlayMain()
 		g_pCloth->Update();
 
 		// Set Material And Draw the mesh
-		Graphics::SetMaterial(wireframeMaterial);
-		//Graphics::SetMaterial(solidMaterial);
+		//Graphics::SetMaterial(wireframeMaterial);
+		Graphics::SetMaterial(solidMaterial);
 		Graphics::DrawMesh(g_pCloth->GetClothMesh(), MatrixTranslate<f32>(0.f, 0.f, 0.f));
 
 		System::EndFrame();

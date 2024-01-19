@@ -16,6 +16,8 @@ public:
 	Vector2f GetMousePos() { return m_position; }
 	Vector2f GetMousePrevPos() { return m_prevPos; }
 	float GetMouseCursorSize() { return m_cursorSize; }
+
+	Vector3f GetMouseRaycast();
 private:
 	Mouse(){}
 	
