@@ -38,15 +38,11 @@ void ClothPoint::CalculateForces()
 	m_forces += drag * (length(m_velocity) * length(m_velocity)) * m_cloth->GetDrag();
 
 	// Wind
-// 	Vector3f wind = Vector3f((rand() % 10), 0, (rand() % 1));
-// 	wind = normalize(wind);
-
 	Vector3f wind = Vector3f((float)((rand() % 200) - 100) / 100.f, 0, ((float)((rand() % 200) - 100) / 100.f));
 	if (wind == Vector3f(0, 0, 0))
 	{
 		wind = Vector3f(1, 0, 0);
 	}
 	wind = normalize(wind);
-	m_forces += wind * ((float)(rand() % 100) /*+ 50.f* (float)(sin(System::GetElapsedTime()))
-		+ 50.f * (float)(cos(System::GetElapsedTime()))*/);
+	m_forces += wind * ((float)(rand() % 100));
 }

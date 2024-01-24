@@ -24,7 +24,7 @@ void Cloth::Initialise()
 }
 
 
-void Cloth::UpdateBuffers()
+void Cloth::UpdatePositionBuffer()
 {
 	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
 	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
@@ -35,6 +35,45 @@ void Cloth::UpdateBuffers()
 	if (SUCCEEDED(hrPos))
 	{
 		memcpy(data.pData, m_positions.data(), sizeof(Vector3f) * m_positions.size());
+		pDC->Unmap(pBuffer, 0);
+	}
+}
+
+void Cloth::RecalculateNormals()
+{
+	std::fill(m_normals.begin(), m_normals.end(), Vector3f(0,0,0));
+
+	for (int i = 0; i < m_indices.size(); i += 3)
+	{
+		Vector3f AB = m_positions[m_indices[i + 1]] - m_positions[m_indices[i]];
+		Vector3f AC = m_positions[m_indices[i + 2]] - m_positions[m_indices[i]];
+		Vector3f fN = cross(AB, AC);
+		fN = normalize(fN);
+
+		m_normals[m_indices[i]] += fN;
+		m_normals[m_indices[i + 1]] += fN;
+		m_normals[m_indices[i + 2]] += fN;
+	}
+
+	for (int i = 0; i < m_normals.size(); i++)
+	{
+		m_normals[i] = normalize(m_normals[i]);
+	}
+}
+
+void Cloth::UpdateNormalBuffer()
+{
+	RecalculateNormals();
+	
+	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
+	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
+	D3D11_MAPPED_SUBRESOURCE data;
+
+	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(2);
+	HRESULT hrPos = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+	if (SUCCEEDED(hrPos))
+	{
+		memcpy(data.pData, m_normals.data(), sizeof(Vector3f) * m_normals.size());
 		pDC->Unmap(pBuffer, 0);
 	}
 }
@@ -114,7 +153,7 @@ void Cloth::CreateClothMesh()
 	streamInfos[2].m_type = Graphics::StreamType::NORMAL;
 	streamInfos[2].m_pData = normals.data();
 	streamInfos[2].m_dataSize = normals.size() * sizeof(Vector3f);
-	//streamInfos[1].m_flags = Graphics::StreamFlags::DYNAMIC_STREAM;
+	streamInfos[2].m_flags = Graphics::StreamFlags::DYNAMIC_STREAM;
 
 	streamInfos[3].m_type = Graphics::StreamType::INDEX;
 	streamInfos[3].m_pData = indices.data();
@@ -126,29 +165,6 @@ void Cloth::CreateClothMesh()
 	desc.m_indexCount = (u32)indices.size();
 	
 	m_clothMesh = Resources::CreateAsset<Graphics::Mesh>(desc);
-}
-
-std::vector<Vector3f> Cloth::CalculateNormals()
-{
-	std::vector<Vector3f> normals(m_noPoints, Vector3f(0, 0, 0));
-	for (int i = 0; i < m_indices.size(); i += 3)
-	{
-		Vector3f AB = m_positions[m_indices[i + 1]] - m_positions[m_indices[i]];
-		Vector3f AC = m_positions[m_indices[i + 2]] - m_positions[m_indices[i]];
-		Vector3f fN = cross(AB, AC);
-		fN = normalize(fN);
-
-		normals[m_indices[i]] += fN;
-		normals[m_indices[i + 1]] += fN;
-		normals[m_indices[i + 2]] += fN;
-	}
-
-	for (int i = 0; i < normals.size(); i++)
-	{
-		normals[i] = normalize(normals[i]);
-	}
-	
-	return normals;
 }
 
 void Cloth::CreatePointsAndSticks()
@@ -192,8 +208,8 @@ void Cloth::Update()
 		m_positions[i] = m_vPoints[i]->GetPosition();
 	}
 
-	//m_normals = CalculateNormals();
-	UpdateBuffers();
+	UpdatePositionBuffer();
+	UpdateNormalBuffer();
 }
 
 void Cloth::Render()

@@ -6,7 +6,7 @@ using namespace Play3d;
 #include "Cloth.h"
 #include "Mouse.h"
 
-Cloth* g_pCloth = new Cloth(10, 7, 20);
+Cloth* g_pCloth = new Cloth(30, 20, 20);
 
 int PlayMain()
 {
