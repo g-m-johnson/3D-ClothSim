@@ -171,19 +171,19 @@ void Cloth::CreatePointsAndSticks()
 {
 	for (Vector3f p : m_positions)
 	{
-		ClothPoint* point = new ClothPoint(this, p);
+		ClothParticle* point = new ClothParticle(this, p);
 		point->SetMass(m_mass / m_noPoints);
 
 		if (p.y != 0)
 		{
-			ClothPoint* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
-			ClothStick* stick = new ClothStick(point, upPoint);
+			ClothParticle* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
+			ClothSpring* stick = new ClothSpring(point, upPoint);
 			upPoint->AddStick(stick, 1);
 			point->AddStick(stick, 1);
 			m_vSticks.push_back(stick);
 		}
 
-		if (p.y == m_height - 1)
+		if (p.y == m_height - 1 /*&& (p.x == 0 || p.x == m_width - 1)*/)
 		{
 			point->SetIsPinned(true);
 		}
@@ -197,9 +197,25 @@ void Cloth::CreatePointsAndSticks()
 
 }
 
+void Cloth::CalculateWindForce()
+{
+// 	Vector3f wind = Vector3f((float)((rand() % 200) - 100) / 100.f, 0, ((float)((rand() % 200) - 100) / 100.f));
+// 	if (wind == Vector3f(0, 0, 0))
+// 	{
+// 		wind = Vector3f(1, 0, 0);
+// 	}
+// 	wind = normalize(wind);
+// 	m_windForce = wind * ((float)(rand() % 100) * (float)sin(System::GetElapsedTime()));
+
+	Vector3f windx(1, 0, 0);
+	Vector3f windz(0,0,1);
+	m_windForce = /*(windx * 50.f * (float)sin(System::GetElapsedTime())) 
+	+*/ (windz * 100.f * (float)cos(System::GetElapsedTime()));
+}
 
 void Cloth::Update()
 {
+	CalculateWindForce();
 	CalculateForces();
 
 	for (int i = 0; i < m_vPoints.size(); i++)
@@ -214,7 +230,7 @@ void Cloth::Update()
 
 void Cloth::Render()
 {
-	for (ClothStick* s : m_vSticks)
+	for (ClothSpring* s : m_vSticks)
 	{
 		s->Render();
 	}
@@ -222,11 +238,11 @@ void Cloth::Render()
 
 void Cloth::Destroy()
 {
-	for (ClothPoint* point : m_vPoints)
+	for (ClothParticle* point : m_vPoints)
 	{
 		delete point;
 	}
-	for (ClothStick* stick : m_vSticks)
+	for (ClothSpring* stick : m_vSticks)
 	{
 		delete stick;
 	}
@@ -234,7 +250,7 @@ void Cloth::Destroy()
 
 void Cloth::CalculateForces()
 {
-	for (ClothPoint* p : m_vPoints)
+	for (ClothParticle* p : m_vPoints)
 	{
 		p->ZeroForceVector();
 
@@ -244,7 +260,7 @@ void Cloth::CalculateForces()
 		}
 	}
 
-	for (ClothStick* s : m_vSticks)
+	for (ClothSpring* s : m_vSticks)
 	{
 		if (s->GetIsActive())
 		{

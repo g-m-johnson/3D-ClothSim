@@ -2,8 +2,8 @@
 #include "../Play3d/Play3d.h"
 using namespace Play3d;
 
-class ClothPoint;
-class ClothStick;
+class ClothParticle;
+class ClothSpring;
 
 class Cloth
 {
@@ -32,20 +32,22 @@ private:
 	void CreateClothMesh();
 	void CreatePointsAndSticks();
 
+	void CalculateWindForce();
+
 	std::vector<Vector3f> m_positions;
 	std::vector<u32> m_indices;
 	std::vector<Vector3f> m_normals;
 
-	std::vector<ClothPoint*> m_vPoints;
-	std::vector<ClothStick*> m_vSticks;
+	std::vector<ClothParticle*> m_vPoints;
+	std::vector<ClothSpring*> m_vSticks;
 
 	Vector3f m_gravity{ 0.0f, -9.81f, 0.0f };
 	Vector3f m_windForce{ 0, 0, 0 };
 
 	Graphics::MeshId m_clothMesh;
 
-	float m_mass{  1460.f };
-	float m_dragCoeff{ 0.1f };
+	float m_mass{ 1400.f };
+	float m_dragCoeff{ 0.01f };
 
 	float m_width;
 	float m_height;

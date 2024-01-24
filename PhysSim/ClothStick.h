@@ -1,12 +1,12 @@
 #pragma once
 
-class ClothPoint;
+class ClothParticle;
 
-class ClothStick
+class ClothSpring
 {
 public:
-	ClothStick(ClothPoint* p1, ClothPoint* p2);
-	~ClothStick();
+	ClothSpring(ClothParticle* p1, ClothParticle* p2);
+	~ClothSpring();
 
 	void Update();
 	void Render();
@@ -20,12 +20,11 @@ public:
 
 
 private:
-	ClothPoint* m_point1;
-	ClothPoint* m_point2;
+	ClothParticle* m_point1;
+	ClothParticle* m_point2;
 	float m_restLength;
 	float m_k = 500.f;	// spring constant
-	float m_c = 0.1f;	// damping constant
-	float m_shearConstant = 60.f;
+	float m_c = 2.f;	// damping constant
 	bool m_isSelected = false;
 	bool m_isActive = true;
 };
