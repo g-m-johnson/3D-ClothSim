@@ -3577,7 +3577,7 @@ namespace Play3d::Demo
 	void UpdateDebugCamera()
 	{
 		constexpr f32 kfRotateSpeed = 0.005f;
-		constexpr f32 kfSpeed = 1.0f;
+		constexpr f32 kfSpeed = 5.0f;
 
 		f32 dT = System::GetDeltaTime();
 		Input::MouseState mouseState = Input::GetMouseState();

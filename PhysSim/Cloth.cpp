@@ -6,7 +6,11 @@ Cloth::Cloth(int width, int height, int spacing)
 	: m_width(width)
 	, m_height(height)
 	, m_spacing(spacing)
-{}
+	, m_noPoints(width * height)
+{
+	m_positions.resize(m_noPoints);
+	m_normals.resize(m_noPoints);
+}
 
 Cloth::~Cloth()
 {
@@ -20,15 +24,15 @@ void Cloth::Initialise()
 }
 
 
-void Cloth::UpdateBuffer()
+void Cloth::UpdateBuffers()
 {
 	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
-	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(0);
-
 	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
 	D3D11_MAPPED_SUBRESOURCE data;
-	HRESULT hr = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
-	if (SUCCEEDED(hr))
+
+	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(0);
+	HRESULT hrPos = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+	if (SUCCEEDED(hrPos))
 	{
 		memcpy(data.pData, m_positions.data(), sizeof(Vector3f) * m_positions.size());
 		pDC->Unmap(pBuffer, 0);
@@ -37,13 +41,12 @@ void Cloth::UpdateBuffer()
 
 void Cloth::CreateClothMesh()
 {
-	const u32 kVertices = m_width * m_height;
-	std::vector<u32> colours(kVertices, 0xFFFFffff);
+	std::vector<u32> colours(m_noPoints, 0xFFFFffff);
 
 
 	/// CALCULATE POSITIONS ----------------------------------------------------
 
-	std::vector<Vector3f> positions(kVertices);
+	std::vector<Vector3f> positions(m_noPoints);
 	for (u32 i = 0; i < m_height; i++)
 	{
 		for (u32 j = 0; j < m_width; j++)
@@ -71,12 +74,12 @@ void Cloth::CreateClothMesh()
 			indices.push_back(squ + m_width);
 		}
 	}
-
+	m_indices = indices;
 
 	/// CALCULATE VERTEX NORMALS -----------------------------------------------
 
-	std::vector<Vector3f> normals(kVertices, Vector3f(0, 0, 0));
-	for (int i = 0; i < indices.size(); i+=3)
+	std::vector<Vector3f> normals(m_noPoints, Vector3f(0, 0, 0));
+	for (int i = 0; i < indices.size(); i += 3)
 	{
 		Vector3f AB = positions[indices[i + 1]] - positions[indices[i]];
 		Vector3f AC = positions[indices[i + 2]] - positions[indices[i]];
@@ -93,6 +96,7 @@ void Cloth::CreateClothMesh()
 		normals[i] = normalize(normals[i]);
 	}
 
+	m_normals = normals;
 
 	/// CREATE MESH ------------------------------------------------------------
 
@@ -110,6 +114,7 @@ void Cloth::CreateClothMesh()
 	streamInfos[2].m_type = Graphics::StreamType::NORMAL;
 	streamInfos[2].m_pData = normals.data();
 	streamInfos[2].m_dataSize = normals.size() * sizeof(Vector3f);
+	//streamInfos[1].m_flags = Graphics::StreamFlags::DYNAMIC_STREAM;
 
 	streamInfos[3].m_type = Graphics::StreamType::INDEX;
 	streamInfos[3].m_pData = indices.data();
@@ -123,12 +128,36 @@ void Cloth::CreateClothMesh()
 	m_clothMesh = Resources::CreateAsset<Graphics::Mesh>(desc);
 }
 
+std::vector<Vector3f> Cloth::CalculateNormals()
+{
+	std::vector<Vector3f> normals(m_noPoints, Vector3f(0, 0, 0));
+	for (int i = 0; i < m_indices.size(); i += 3)
+	{
+		Vector3f AB = m_positions[m_indices[i + 1]] - m_positions[m_indices[i]];
+		Vector3f AC = m_positions[m_indices[i + 2]] - m_positions[m_indices[i]];
+		Vector3f fN = cross(AB, AC);
+		fN = normalize(fN);
+
+		normals[m_indices[i]] += fN;
+		normals[m_indices[i + 1]] += fN;
+		normals[m_indices[i + 2]] += fN;
+	}
+
+	for (int i = 0; i < normals.size(); i++)
+	{
+		normals[i] = normalize(normals[i]);
+	}
+	
+	return normals;
+}
+
 void Cloth::CreatePointsAndSticks()
 {
 	for (Vector3f p : m_positions)
 	{
 		ClothPoint* point = new ClothPoint(this, p);
-		
+		point->SetMass(m_mass / m_noPoints);
+
 		if (p.y != 0)
 		{
 			ClothPoint* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
@@ -142,6 +171,10 @@ void Cloth::CreatePointsAndSticks()
 		{
 			point->SetIsPinned(true);
 		}
+		else
+		{
+			point->SetVelocity(m_gravity);
+		}
 		
 		m_vPoints.push_back(point);
 	}
@@ -151,18 +184,16 @@ void Cloth::CreatePointsAndSticks()
 
 void Cloth::Update()
 {
+	CalculateForces();
+
 	for (int i = 0; i < m_vPoints.size(); i++)
 	{
-		m_vPoints[i]->Update();
+		m_vPoints[i]->VerletIntegration();
 		m_positions[i] = m_vPoints[i]->GetPosition();
 	}
 
-	for (ClothStick* s : m_vSticks)
-	{
-		s->Update();
-	}
-
-	UpdateBuffer();
+	//m_normals = CalculateNormals();
+	UpdateBuffers();
 }
 
 void Cloth::Render()
@@ -182,5 +213,26 @@ void Cloth::Destroy()
 	for (ClothStick* stick : m_vSticks)
 	{
 		delete stick;
+	}
+}
+
+void Cloth::CalculateForces()
+{
+	for (ClothPoint* p : m_vPoints)
+	{
+		p->ZeroForceVector();
+
+		if (!p->GetIsPinned())
+		{
+			p->CalculateForces();
+		}
+	}
+
+	for (ClothStick* s : m_vSticks)
+	{
+		if (s->GetIsActive())
+		{
+			s->CalculateSpringForces();
+		}
 	}
 }

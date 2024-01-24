@@ -11,9 +11,13 @@ public:
 	ClothPoint(Cloth* cloth, Vector3f pos);
 	~ClothPoint();
 
-	void Update();
+	void VerletIntegration();
 
 	void AddStick(ClothStick* stick, int index);
+
+	void CalculateForces();
+
+
 
 	Vector3f GetPosition() { return m_position; }
 	void SetPosition(Vector3f pos) { m_position = pos; }
@@ -21,13 +25,27 @@ public:
 	bool GetIsPinned() { return m_isPinned; }
 	void SetIsPinned(bool isStatic) { m_isPinned = isStatic; }
 
+	Vector3f& GetForceVector() { return m_forces; }
+	void ZeroForceVector() { m_forces = Vector3f(0, 0, 0); }
+
+	float GetMass() { return m_mass; }
+	void SetMass(float m) { m_mass = m; }
+
+	Vector3f GetVelocity() { return m_velocity; }
+	void SetVelocity(Vector3f v) { m_velocity = v; }
 private:
 	Vector3f m_position;
 	Vector3f m_prevPos;
 	Vector3f m_initPos;
 
+	Vector3f m_forces{ 0, 0, 0 };
+	Vector3f m_velocity{ 0, 0, 0 };
+	Vector3f m_acceleration{ 0, 0, 0 };
+
 	Cloth* m_cloth;
 	ClothStick* m_sticks[2] = {nullptr};
+
+	float m_mass;
 
 	bool m_isPinned = false;
 };

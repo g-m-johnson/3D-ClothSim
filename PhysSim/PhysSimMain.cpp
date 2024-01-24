@@ -1,6 +1,4 @@
 #define PLAY_IMPLEMENTATION
-//#define PLAY_USING_GAMEOBJECT_MANAGER
-//#include "Play.h"
 #include "../Play3d/Play3d.h"
 using namespace Play3d;
 
@@ -8,17 +6,19 @@ using namespace Play3d;
 #include "Cloth.h"
 #include "Mouse.h"
 
-Cloth* g_pCloth = new Cloth(39, 20, 20);
+Cloth* g_pCloth = new Cloth(10, 7, 20);
 
 int PlayMain()
 {
 	SystemDesc systemDesc;
 	systemDesc.title = "ClothSim";
-	systemDesc.width = 1920;
+	systemDesc.width = 2160;
 	systemDesc.height = 1080;
 	System::Initialise(systemDesc);
 
-	Demo::SetDebugCameraPosition(Vector3f(20, 10, -30), 0, 0);
+	srand(time(0));
+
+	Demo::SetDebugCameraPosition(Vector3f(20, 10, -50), 0, 0);
 	Demo::SetDebugCameraFOV(kfPi / 4.f, 0.1f, 75.f);
 
 	g_pCloth->Initialise();
@@ -68,8 +68,8 @@ int PlayMain()
 		g_pCloth->Update();
 
 		// Set Material And Draw the mesh
-		Graphics::SetMaterial(wireframeMaterial);
-		//Graphics::SetMaterial(solidMaterial);
+		//Graphics::SetMaterial(wireframeMaterial);
+		Graphics::SetMaterial(solidMaterial);
 		Graphics::DrawMesh(g_pCloth->GetClothMesh(), MatrixTranslate<f32>(0.f, 0.f, 0.f));
 
 		System::EndFrame();

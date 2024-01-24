@@ -9,84 +9,44 @@ ClothPoint::ClothPoint(Cloth* cloth, Vector3f pos)
 	, m_position(pos)
 	, m_prevPos(pos)
 	, m_initPos(pos)
-{
-}
+{}
 
 ClothPoint::~ClothPoint()
+{}
+
+void ClothPoint::VerletIntegration()
 {
-}
-
-void ClothPoint::Update()
-{
-	float dT = System::GetDeltaTime();
-
-	Vector3f cursorToPoint = m_position - Vector3f(Mouse::Instance().GetMousePos(), 0);
-	float cursorSize = Mouse::Instance().GetMouseCursorSize();
-	bool isSelected = lengthSqr(cursorToPoint) < (cursorSize * cursorSize);
-
-	for (ClothStick* stick : m_sticks)
-	{
-		if (stick != nullptr)
-		{
-			stick->SetIsSelected(isSelected);
-		}
-	}
-
-	float e = m_cloth->GetElasticity();
-
-	if (Play3d::Input::GetMouseState().m_leftButton && isSelected)
-	{
-		float diffX = Play3d::Input::GetMouseState().m_deltaX;
-		float diffY = Play3d::Input::GetMouseState().m_deltaY;
-
-		if (diffX > e)
-		{
-			diffX = e;
-		}
-		if (diffY > e)
-		{
-			diffY = e;
-		}
-		if (diffX < -e)
-		{
-			diffX = -e;
-		}
-		if (diffY < -e)
-		{
-			diffY = -e;
-		}
-
-		Vector3f diff = Vector3f(diffX, diffY, 0);
-		m_prevPos = m_position - diff;
-	}
-
-	
-	if (Play3d::Input::GetMouseState().m_rightButton && isSelected)
-	{
-		for (ClothStick* stick : m_sticks)
-		{
-			if (stick != nullptr)
-			{
-				stick->SetIsActive(false);
-			}
-		}
-	}
-	
-	if (m_isPinned)
-	{
-		m_position = m_initPos;
-	}
-
-	Vector3f g = m_cloth->GetGravity();
-	float d = m_cloth->GetDrag();
-
-	Vector3f newPos = m_position + (m_position - m_prevPos) * (1.0f - d) + g * (1.0f - d) * dT * dT;
 	m_prevPos = m_position;
-	m_position = newPos;
-
+	float dT = System::GetDeltaTime();
+ 	m_acceleration = m_forces * 1.0f;
+	m_position = 2.0f * m_position - m_prevPos + m_acceleration * dT * dT;
 }
 
 void ClothPoint::AddStick(ClothStick* stick, int index)
 {
 	m_sticks[index] = stick;
+}
+
+void ClothPoint::CalculateForces()
+{
+	// Gravity
+	m_forces.y += m_cloth->GetGravity().y * m_mass;
+	
+	// Drag 
+	Vector3f drag = -m_velocity;
+	drag = normalize(drag);
+	m_forces += drag * (length(m_velocity) * length(m_velocity)) * m_cloth->GetDrag();
+
+	// Wind
+// 	Vector3f wind = Vector3f((rand() % 10), 0, (rand() % 1));
+// 	wind = normalize(wind);
+
+	Vector3f wind = Vector3f((float)((rand() % 200) - 100) / 100.f, 0, ((float)((rand() % 200) - 100) / 100.f));
+	if (wind == Vector3f(0, 0, 0))
+	{
+		wind = Vector3f(1, 0, 0);
+	}
+	wind = normalize(wind);
+	m_forces += wind * ((float)(rand() % 100) /*+ 50.f* (float)(sin(System::GetElapsedTime()))
+		+ 50.f * (float)(cos(System::GetElapsedTime()))*/);
 }
