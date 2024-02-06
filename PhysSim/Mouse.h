@@ -11,11 +11,10 @@ public:
 		static Mouse *Instance = new Mouse();
 		return *Instance;
 	}
-	void Initialise();
-	void Update();
-	Vector2f GetMousePos() { return m_position; }
-	Vector2f GetMousePrevPos() { return m_prevPos; }
-	float GetMouseCursorSize() { return m_cursorSize; }
+	
+	void Raycast();
+
+
 private:
 	Mouse(){}
 	
