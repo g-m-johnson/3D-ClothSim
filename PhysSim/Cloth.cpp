@@ -208,9 +208,8 @@ void Cloth::CalculateWindForce()
 // 	m_windForce = wind * ((float)(rand() % 100) * (float)sin(System::GetElapsedTime()));
 
 	Vector3f windx(1, 0, 0);
-	Vector3f windz(0,0,1);
-	m_windForce = /*(windx * 50.f * (float)sin(System::GetElapsedTime())) 
-	+*/ (windz * 100.f * (float)cos(System::GetElapsedTime()));
+	Vector3f windz(0, 0, 1);
+	m_windForce = (windz * 100.f * cosf(System::GetElapsedTime()));
 }
 
 void Cloth::Update()
