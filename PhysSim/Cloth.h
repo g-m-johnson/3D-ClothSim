@@ -8,7 +8,7 @@ class ClothStick;
 class Cloth
 {
 public:
-	Cloth(int width, int height, int spacing);
+	Cloth(float width, float height);
 	~Cloth();
 
 	void Initialise();
@@ -49,7 +49,6 @@ private:
 
 	float m_width;
 	float m_height;
-	float m_spacing;
 
 	int m_noPoints;
 };

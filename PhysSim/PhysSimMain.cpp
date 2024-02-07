@@ -6,7 +6,7 @@ using namespace Play3d;
 #include "Cloth.h"
 #include "Mouse.h"
 
-Cloth* g_pCloth = new Cloth(30, 20, 20);
+Cloth* g_pCloth = new Cloth(30, 20);
 
 int PlayMain()
 {
@@ -16,7 +16,7 @@ int PlayMain()
 	systemDesc.height = 1080;
 	System::Initialise(systemDesc);
 
-	srand(time(0));
+	srand((int)time(0));
 
 	Demo::SetDebugCameraPosition(Vector3f(20, 10, -50), 0, 0);
 	Demo::SetDebugCameraFOV(kfPi / 4.f, 0.1f, 75.f);

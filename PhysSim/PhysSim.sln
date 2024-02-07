@@ -5,7 +5,7 @@ VisualStudioVersion = 17.7.34302.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PhysSim", "PhysSim.vcxproj", "{C0DB25D4-AAA5-4D97-B4E6-FBCD9E16AA2E}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Play3d", "..\..\..\..\..\Documents\gLTF-Reader\Play3d\Play3d.vcxproj", "{C0047765-70D3-5212-897D-AD56A8653FDF}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Play3d", "..\Play3d\Play3d.vcxproj", "{C0047765-70D3-5212-897D-AD56A8653FDF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

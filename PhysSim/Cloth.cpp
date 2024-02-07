@@ -2,10 +2,9 @@
 #include "ClothPoint.h"
 #include "ClothStick.h"
 
-Cloth::Cloth(int width, int height, int spacing)
+Cloth::Cloth(float width, float height)
 	: m_width(width)
 	, m_height(height)
-	, m_spacing(spacing)
 	, m_noPoints(width * height)
 {
 	m_positions.resize(m_noPoints);
@@ -90,7 +89,7 @@ void Cloth::CreateClothMesh()
 	{
 		for (u32 j = 0; j < m_width; j++)
 		{
-			u32 index = (i * m_width) + j;
+			u32 index = (i * (u32)m_width) + j;
 			positions[index] = Vector3f(j, i, 0);
 		}
 	}

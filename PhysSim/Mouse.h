@@ -12,8 +12,8 @@ public:
 		return *Instance;
 	}
 	
+	Vector3f GetRayDirection(const Matrix4x4f& viewMatrix, const Matrix4x4f& projectMatrix, const Vector3f& cameraPosWorldSpace);
 	void Raycast();
-
 
 private:
 	Mouse(){}
