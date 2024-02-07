@@ -18,8 +18,16 @@ Cloth::~Cloth()
 
 void Cloth::Initialise()
 {
+	CreateMaterials();
 	CreateClothMesh();
 	CreatePointsAndSticks();
+
+	m_plane = Geometry::Plane(Vector3f(0, 0, 1), 0);
+	m_quad = Geometry::Quad( m_cornerPoints[0]->GetPosition(),
+							 m_cornerPoints[1]->GetPosition(), 
+							 m_cornerPoints[2]->GetPosition(), 
+							 m_cornerPoints[3]->GetPosition() );
+
 }
 
 
@@ -166,6 +174,30 @@ void Cloth::CreateClothMesh()
 	m_clothMesh = Resources::CreateAsset<Graphics::Mesh>(desc);
 }
 
+void Cloth::CreateMaterials()
+{
+	// Define wire frame and solid materials
+
+	Graphics::SimpleMaterialDesc desc_wf;
+	desc_wf.m_state.m_cullMode = Graphics::CullMode::NONE;
+	desc_wf.m_state.m_fillMode = Graphics::FillMode::WIREFRAME;
+	Colour::Seagreen.as_float_rgba_srgb(&desc_wf.m_constants.diffuseColour.x);
+	desc_wf.m_bEnableLighting = false;
+
+	m_wireframeMat = Resources::CreateAsset<Graphics::Material>(desc_wf);
+	
+
+	Graphics::SimpleMaterialDesc desc_s;
+	desc_s.m_state.m_cullMode = Graphics::CullMode::NONE;
+	desc_s.m_state.m_fillMode = Graphics::FillMode::SOLID;
+	desc_s.m_bEnableLighting = true;
+	desc_s.m_lightCount = 1;
+
+	Colour::Seagreen.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
+	m_solidMat = Resources::CreateAsset<Graphics::Material>(desc_s);
+	
+}
+
 void Cloth::CreatePointsAndSticks()
 {
 	for (Vector3f p : m_positions)
@@ -173,7 +205,7 @@ void Cloth::CreatePointsAndSticks()
 		ClothPoint* point = new ClothPoint(this, p);
 		point->SetMass(m_mass / m_noPoints);
 
-		if (p.y != 0)
+		if (!EqualTol(p.y, 0.0f, 0.001f))
 		{
 			ClothPoint* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
 			ClothStick* stick = new ClothStick(point, upPoint);
@@ -182,7 +214,7 @@ void Cloth::CreatePointsAndSticks()
 			m_vSticks.push_back(stick);
 		}
 
-		if (p.y == m_height - 1)
+		if (EqualTol(p.y, m_height - 1.f, 0.001f))
 		{
 			point->SetIsPinned(true);
 		}
@@ -190,7 +222,15 @@ void Cloth::CreatePointsAndSticks()
 		{
 			point->SetVelocity(m_gravity);
 		}
-		
+
+		if ((EqualTol(p.x, 0.f, 0.001f) && EqualTol(p.y, 0.0f, 0.001f))
+			|| (EqualTol(p.x, 0.f, 0.001f) && EqualTol(p.y, m_height - 1.f, 0.001f))
+			|| (EqualTol(p.x, m_width - 1.f, 0.001f) && EqualTol(p.y, 0.0f, 0.001f))
+			|| (EqualTol(p.x, m_width - 1.f, 0.001f) && EqualTol(p.y, m_height - 1.f, 0.001f)))
+		{
+			point->SetIsCorner(true);
+			m_cornerPoints.push_back(point);
+		}
 		m_vPoints.push_back(point);
 	}
 
@@ -213,10 +253,9 @@ void Cloth::Update()
 
 void Cloth::Render()
 {
-	for (ClothStick* s : m_vSticks)
-	{
-		s->Render();
-	}
+	//Graphics::SetMaterial(wireframeMaterial);
+	Graphics::SetMaterial(m_solidMat);
+	Graphics::DrawMesh(m_clothMesh, MatrixTranslate<f32>(0.f, 0.f, 0.f));
 }
 
 void Cloth::Destroy()

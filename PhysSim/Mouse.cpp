@@ -1,4 +1,27 @@
 #include "Mouse.h"
+#include "Collision.h"
+#include "ObjectManager.h"
+#include "Cloth.h"
+
+void Mouse::Update()
+{
+	Matrix4x4f view = Graphics::GetViewMatrix();
+	Matrix4x4f project = Graphics::GetProjectionMatrix();
+	Vector3f camPos = Demo::GetEyePosition();
+
+	Vector3f rayDir = GetRayDirection(view, project, camPos);
+
+	m_ray = Geometry::Ray(m_mouseWorld, m_mouseWorld + 100.f * rayDir);
+
+	Cloth* c = ObjectManager::Instance().GetClothPtr();
+	Vector3f i;
+	if (Collision::IntersectRayQuad(m_ray, c->GetQuad(), i))
+	{	
+		Graphics::BeginPrimitiveBatch();
+		Graphics::DrawLine(m_ray.start, Vector3f(0,0,0), Colour::Red);
+		Graphics::EndPrimitiveBatch();
+	}
+}
 
 Play3d::Vector3f Mouse::GetRayDirection(const Matrix4x4f& viewMatrix, const Matrix4x4f& projectMatrix, const Vector3f& cameraPosWorldSpace)
 {

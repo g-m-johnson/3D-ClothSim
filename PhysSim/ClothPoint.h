@@ -25,6 +25,9 @@ public:
 	bool GetIsPinned() { return m_isPinned; }
 	void SetIsPinned(bool isStatic) { m_isPinned = isStatic; }
 
+	bool GetIsCorner() { return m_isCorner; }
+	void SetIsCorner(bool isCorner) { m_isCorner = isCorner; }
+
 	Vector3f& GetForceVector() { return m_forces; }
 	void ZeroForceVector() { m_forces = Vector3f(0, 0, 0); }
 
@@ -48,5 +51,6 @@ private:
 	float m_mass;
 
 	bool m_isPinned = false;
+	bool m_isCorner = false;
 };
 

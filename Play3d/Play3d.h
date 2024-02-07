@@ -494,6 +494,15 @@ namespace Play3d
 							 lhs.x * rhs.y - lhs.y * rhs.x);
 	}
 
+	template <typename T>
+	inline T scalarTriple(const TVector<3, T>& a, const TVector<3, T>& b, const TVector<3, T>& c)
+	{
+		T p = a.x * (b.y*c.z - b.z*c.y);
+		T q = a.y * (b.x*c.z - b.z*c.x);
+		T r = a.z * (b.x*c.y - b.y*c.x);
+		return p - q + r;
+	}
+
 	template <int N, typename T>
 	inline bool operator==(const TVector<N, T>& lhs, const TVector<N, T>& rhs)
 	{
