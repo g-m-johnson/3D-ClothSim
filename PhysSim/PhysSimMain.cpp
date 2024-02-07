@@ -72,6 +72,10 @@ int PlayMain()
 		Graphics::SetMaterial(solidMaterial);
 		Graphics::DrawMesh(g_pCloth->GetClothMesh(), MatrixTranslate<f32>(0.f, 0.f, 0.f));
 
+		Graphics::BeginPrimitiveBatch();
+		Mouse::Instance().DebugDrawMouseRay();
+		Graphics::EndPrimitiveBatch();
+
 		System::EndFrame();
 	}
 

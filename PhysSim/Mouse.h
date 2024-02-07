@@ -14,10 +14,13 @@ public:
 	
 	Vector3f GetRayDirection(const Matrix4x4f& viewMatrix, const Matrix4x4f& projectMatrix, const Vector3f& cameraPosWorldSpace);
 	void Raycast();
+	void DebugDrawMouseRay();
 
 private:
 	Mouse(){}
 	
+	Vector3f m_mouseWorld;
+
 	Vector2f m_position;
 	Vector2f m_prevPos;
 	
