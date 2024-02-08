@@ -1,6 +1,5 @@
 #pragma once
-#include "../Play3d/Play3d.h"
-using namespace Play3d;
+#include "Geometry.h"
 
 class Mouse
 {
@@ -11,17 +10,25 @@ public:
 		static Mouse *Instance = new Mouse();
 		return *Instance;
 	}
-	void Initialise();
+	
 	void Update();
-	Vector2f GetMousePos() { return m_position; }
-	Vector2f GetMousePrevPos() { return m_prevPos; }
-	float GetMouseCursorSize() { return m_cursorSize; }
+
+	Vector3f GetRayDirection(const Matrix4x4f& viewMatrix, const Matrix4x4f& projectMatrix, const Vector3f& cameraPosWorldSpace);
+	void Raycast();
+	void DebugDrawMouseRay();
+
 private:
 	Mouse(){}
 	
+	Geometry::Ray m_ray;
+
+	Vector3f m_mouseWorld;
+
 	Vector2f m_position;
 	Vector2f m_prevPos;
 	
-	float m_cursorSize = 30;
+	float m_cursorSize = 1;
+
+	bool m_isMouseReleased = true;
 };
 

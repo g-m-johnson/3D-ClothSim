@@ -17,13 +17,16 @@ public:
 
 	void CalculateForces();
 
-
+	void ApplyExternalForce(Vector3f force);
 
 	Vector3f GetPosition() { return m_position; }
 	void SetPosition(Vector3f pos) { m_position = pos; }
 
 	bool GetIsPinned() { return m_isPinned; }
 	void SetIsPinned(bool isStatic) { m_isPinned = isStatic; }
+
+	bool GetIsCorner() { return m_isCorner; }
+	void SetIsCorner(bool isCorner) { m_isCorner = isCorner; }
 
 	Vector3f& GetForceVector() { return m_forces; }
 	void ZeroForceVector() { m_forces = Vector3f(0, 0, 0); }
@@ -38,6 +41,7 @@ private:
 	Vector3f m_prevPos;
 	Vector3f m_initPos;
 
+	Vector3f m_forcesExt;
 	Vector3f m_forces{ 0, 0, 0 };
 	Vector3f m_velocity{ 0, 0, 0 };
 	Vector3f m_acceleration{ 0, 0, 0 };
@@ -48,5 +52,6 @@ private:
 	float m_mass;
 
 	bool m_isPinned = false;
+	bool m_isCorner = false;
 };
 

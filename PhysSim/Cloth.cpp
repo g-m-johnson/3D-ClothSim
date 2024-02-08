@@ -2,10 +2,9 @@
 #include "ClothPoint.h"
 #include "ClothStick.h"
 
-Cloth::Cloth(int width, int height, int spacing)
+Cloth::Cloth(float width, float height)
 	: m_width(width)
 	, m_height(height)
-	, m_spacing(spacing)
 	, m_noPoints(width * height)
 {
 	m_positions.resize(m_noPoints);
@@ -19,8 +18,16 @@ Cloth::~Cloth()
 
 void Cloth::Initialise()
 {
+	CreateMaterials();
 	CreateClothMesh();
 	CreatePointsAndSticks();
+
+	m_plane = Geometry::Plane(Vector3f(0, 0, 1), 0);
+	m_quad = Geometry::Quad( m_cornerPoints[0]->GetPosition(),
+							 m_cornerPoints[1]->GetPosition(), 
+							 m_cornerPoints[2]->GetPosition(), 
+							 m_cornerPoints[3]->GetPosition() );
+
 }
 
 
@@ -90,7 +97,7 @@ void Cloth::CreateClothMesh()
 	{
 		for (u32 j = 0; j < m_width; j++)
 		{
-			u32 index = (i * m_width) + j;
+			u32 index = (i * (u32)m_width) + j;
 			positions[index] = Vector3f(j, i, 0);
 		}
 	}
@@ -167,6 +174,30 @@ void Cloth::CreateClothMesh()
 	m_clothMesh = Resources::CreateAsset<Graphics::Mesh>(desc);
 }
 
+void Cloth::CreateMaterials()
+{
+	// Define wire frame and solid materials
+
+	Graphics::SimpleMaterialDesc desc_wf;
+	desc_wf.m_state.m_cullMode = Graphics::CullMode::NONE;
+	desc_wf.m_state.m_fillMode = Graphics::FillMode::WIREFRAME;
+	Colour::Seagreen.as_float_rgba_srgb(&desc_wf.m_constants.diffuseColour.x);
+	desc_wf.m_bEnableLighting = false;
+
+	m_wireframeMat = Resources::CreateAsset<Graphics::Material>(desc_wf);
+	
+
+	Graphics::SimpleMaterialDesc desc_s;
+	desc_s.m_state.m_cullMode = Graphics::CullMode::NONE;
+	desc_s.m_state.m_fillMode = Graphics::FillMode::SOLID;
+	desc_s.m_bEnableLighting = true;
+	desc_s.m_lightCount = 1;
+
+	Colour::Seagreen.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
+	m_solidMat = Resources::CreateAsset<Graphics::Material>(desc_s);
+	
+}
+
 void Cloth::CreatePointsAndSticks()
 {
 	for (Vector3f p : m_positions)
@@ -174,7 +205,7 @@ void Cloth::CreatePointsAndSticks()
 		ClothParticle* point = new ClothParticle(this, p);
 		point->SetMass(m_mass / m_noPoints);
 
-		if (p.y != 0)
+		if (!EqualTol(p.y, 0.0f, 0.001f))
 		{
 			ClothParticle* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
 			ClothSpring* stick = new ClothSpring(point, upPoint);
@@ -183,7 +214,7 @@ void Cloth::CreatePointsAndSticks()
 			m_vSticks.push_back(stick);
 		}
 
-		if (p.y == m_height - 1 /*&& (p.x == 0 || p.x == m_width - 1)*/)
+		if (EqualTol(p.y, m_height - 1.f, 0.001f))
 		{
 			point->SetIsPinned(true);
 		}
@@ -191,7 +222,31 @@ void Cloth::CreatePointsAndSticks()
 		{
 			point->SetVelocity(m_gravity);
 		}
-		
+
+		m_cornerPoints.resize(4);
+
+		if (EqualTol(p.x, 0.f, 0.001f) && EqualTol(p.y, 0.0f, 0.001f))
+		{
+			// A
+			m_cornerPoints.at(0) = point;
+		}
+		else if (EqualTol(p.x, 0.f, 0.001f) && EqualTol(p.y, m_height - 1.f, 0.001f))
+		{
+			// B
+			m_cornerPoints.at(1) = point;
+		}
+		else if (EqualTol(p.x, m_width - 1.f, 0.001f) && EqualTol(p.y, m_height - 1.f, 0.001f))
+		{
+			// C
+			m_cornerPoints.at(2) = point;
+		}
+		else if (EqualTol(p.x, m_width - 1.f, 0.001f) && EqualTol(p.y, 0.0f, 0.001f))
+		{
+			// D
+			m_cornerPoints.at(3) = point;
+		}
+
+
 		m_vPoints.push_back(point);
 	}
 
@@ -225,14 +280,18 @@ void Cloth::Update()
 
 	UpdatePositionBuffer();
 	UpdateNormalBuffer();
+
+	m_quad = Geometry::Quad(m_cornerPoints[0]->GetPosition(),
+		m_cornerPoints[1]->GetPosition(),
+		m_cornerPoints[2]->GetPosition(),
+		m_cornerPoints[3]->GetPosition());
 }
 
 void Cloth::Render()
 {
-	for (ClothSpring* s : m_vSticks)
-	{
-		s->Render();
-	}
+	//Graphics::SetMaterial(wireframeMaterial);
+	Graphics::SetMaterial(m_solidMat);
+	Graphics::DrawMesh(m_clothMesh, MatrixTranslate<f32>(0.f, 0.f, 0.f));
 }
 
 void Cloth::Destroy()
@@ -245,6 +304,25 @@ void Cloth::Destroy()
 	{
 		delete stick;
 	}
+}
+
+void Cloth::ApplyExternalForce(Vector3f pos)
+{
+	// Find closest particle to pos
+	ClothParticle* closestParticle = m_vPoints[0];
+	float shortestlenSqr = 100.f;
+	for (ClothParticle* p : m_vPoints)
+	{
+		Vector3f AB = p->GetPosition() - pos;
+		float ls = lengthSqr(AB);
+		if (ls < shortestlenSqr)
+		{
+			shortestlenSqr = ls;
+			closestParticle = p;
+		}
+	}
+
+	closestParticle->ApplyExternalForce(Vector3f(0,0,100));
 }
 
 void Cloth::CalculateForces()

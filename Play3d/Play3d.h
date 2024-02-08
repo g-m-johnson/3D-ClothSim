@@ -494,6 +494,15 @@ namespace Play3d
 							 lhs.x * rhs.y - lhs.y * rhs.x);
 	}
 
+	template <typename T>
+	inline T scalarTriple(const TVector<3, T>& a, const TVector<3, T>& b, const TVector<3, T>& c)
+	{
+		T p = a.x * (b.y*c.z - b.z*c.y);
+		T q = a.y * (b.x*c.z - b.z*c.x);
+		T r = a.z * (b.x*c.y - b.y*c.x);
+		return p - q + r;
+	}
+
 	template <int N, typename T>
 	inline bool operator==(const TVector<N, T>& lhs, const TVector<N, T>& rhs)
 	{
@@ -2460,9 +2469,15 @@ namespace Play3d::Graphics
 	//! Triggers generation of matrices in the per-frame constant buffer (prior to the next draw call).
 	void SetViewMatrix(const Matrix4x4f& m);
 
+	Matrix4x4f GetViewMatrix();
+
 	//! @brief Sets the projection matrix for future draw calls.
 	//! Triggers generation of matrices in the per-frame constant buffer (prior to the next draw call).
 	void SetProjectionMatrix(const Matrix4x4f& m);
+
+	//! @brief Gets the projection matrix
+	//! 
+	Matrix4x4f GetProjectionMatrix();
 
 	//! ---------------------------------------------------------
 	//! Primitive Drawing Interface:
@@ -3103,6 +3118,9 @@ namespace Play3d::Demo
 	//! ---------------------------------------------------------
 	//! Demo Features for Tutorials
 
+	//! @brief Gets the position of the eye
+	Vector3f GetEyePosition();
+
 	//! @brief Sets the position and view angle for the demo camera.
 	//! @param position : the eye position.
 	//! @param fAzimuth : the view angle in the horizontal plane.
@@ -3560,6 +3578,11 @@ namespace Play3d::Demo
 
 	static DemoImpl s_demoState;
 
+	Vector3f GetEyePosition()
+	{
+		return s_demoState.m_eyePosition;
+	}
+
 	void SetDebugCameraPosition(const Vector3f& fPosition, f32 fAzimuth, f32 fElevation)
 	{
 		s_demoState.m_eyePosition = fPosition;
@@ -3947,7 +3970,11 @@ namespace Play3d::Graphics
 
 		void SetViewMatrix(const Matrix4x4f& m);
 
+		Matrix4x4f GetViewMatrix() const;
+
 		void SetProjectionMatrix(const Matrix4x4f& m);
+
+		Matrix4x4f GetProjectionMatrix() const;
 
 		void SetWorldMatrix(const Matrix4x4f& m);
 
@@ -4353,9 +4380,19 @@ namespace Play3d::Graphics
 		Graphics_Impl::Instance().SetViewMatrix(m);
 	}
 
+	Matrix4x4f GetViewMatrix()
+	{
+		return Graphics_Impl::Instance().GetViewMatrix();
+	}
+
 	void SetProjectionMatrix(const Matrix4x4f& m)
 	{
 		Graphics_Impl::Instance().SetProjectionMatrix(m);
+	}
+
+	Matrix4x4f GetProjectionMatrix()
+	{
+		return Graphics_Impl::Instance().GetProjectionMatrix();
 	}
 
 	void BeginPrimitiveBatch()
@@ -5547,12 +5584,24 @@ namespace Play3d::Graphics
 		t.viewPosition = t.invViewMtx.m_column[3];
 	}
 
+	Matrix4x4f Graphics_Impl::GetViewMatrix() const
+	{
+		FrameConstantData t(m_frameConstants.Get());
+		return t.viewMtx;
+	}
+
 	void Graphics_Impl::SetProjectionMatrix(const Matrix4x4f& m)
 	{
 		FrameConstantData& t(m_frameConstants.Get());
 		t.projectionMtx = m;
 		t.viewProjectionMtx = t.projectionMtx * t.viewMtx;
 		t.invProjectionMtx = InversePerspectiveProjectRH(t.projectionMtx);
+	}
+
+	Matrix4x4f Graphics_Impl::GetProjectionMatrix() const
+	{
+		FrameConstantData t(m_frameConstants.Get());
+		return t.projectionMtx;
 	}
 
 	void Graphics_Impl::SetWorldMatrix(const Matrix4x4f& m)

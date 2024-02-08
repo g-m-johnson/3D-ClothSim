@@ -39,4 +39,13 @@ void ClothParticle::CalculateForces()
 
 	// Wind
 	m_forces += m_cloth->GetWindForce();
+
+	// External forces
+	m_forces += m_forcesExt;
+	m_forcesExt = Vector3f(0, 0, 0);
+}
+
+void ClothParticle::ApplyExternalForce(Vector3f force)
+{
+	m_forcesExt = force;
 }

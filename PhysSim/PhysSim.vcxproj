@@ -133,7 +133,9 @@
     <ClCompile Include="ClothPoint.cpp" />
     <ClCompile Include="ClothStick.cpp" />
     <ClCompile Include="Collision.cpp" />
+    <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="Mouse.cpp" />
+    <ClCompile Include="ObjectManager.cpp" />
     <ClCompile Include="PhysSimMain.cpp" />
     <ClCompile Include="WindSource.cpp" />
   </ItemGroup>
@@ -142,7 +144,9 @@
     <ClInclude Include="ClothPoint.h" />
     <ClInclude Include="ClothStick.h" />
     <ClInclude Include="Collision.h" />
+    <ClInclude Include="Geometry.h" />
     <ClInclude Include="Mouse.h" />
+    <ClInclude Include="ObjectManager.h" />
     <ClInclude Include="PhysSimMain.h" />
     <ClInclude Include="WindSource.h" />
   </ItemGroup>

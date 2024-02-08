@@ -1,6 +1,5 @@
 #pragma once
-#include "../Play3d/Play3d.h"
-using namespace Play3d;
+#include "Geometry.h"
 
 class ClothParticle;
 class ClothSpring;
@@ -8,7 +7,7 @@ class ClothSpring;
 class Cloth
 {
 public:
-	Cloth(int width, int height, int spacing);
+	Cloth(float width, float height);
 	~Cloth();
 
 	void Initialise();
@@ -16,9 +15,16 @@ public:
 	void Render();
 	void Destroy();
 
+	void ApplyExternalForce(Vector3f pos);
+
 	void CalculateForces();
 
 	Graphics::MeshId& GetClothMesh(){ return m_clothMesh; }
+
+	Geometry::Plane& GetPlane() { return m_plane; }
+	Geometry::Quad& GetQuad() { return m_quad; }
+
+	std::vector<ClothParticle*> GetCorners() { return m_cornerPoints; }
 
 	const Vector3f GetGravity() const {return m_gravity;}
 	const float GetDrag() const {return m_dragCoeff;}
@@ -30,6 +36,7 @@ public:
 
 private:
 	void CreateClothMesh();
+	void CreateMaterials();
 	void CreatePointsAndSticks();
 
 	void CalculateWindForce();
@@ -41,8 +48,16 @@ private:
 	std::vector<ClothParticle*> m_vPoints;
 	std::vector<ClothSpring*> m_vSticks;
 
+	std::vector<ClothParticle*> m_cornerPoints;
+
+	Geometry::Plane m_plane;
+	Geometry::Quad m_quad;
+
 	Vector3f m_gravity{ 0.0f, -9.81f, 0.0f };
 	Vector3f m_windForce{ 0, 0, 0 };
+
+	Graphics::MaterialId m_wireframeMat;
+	Graphics::MaterialId m_solidMat;
 
 	Graphics::MeshId m_clothMesh;
 
@@ -51,7 +66,6 @@ private:
 
 	float m_width;
 	float m_height;
-	float m_spacing;
 
 	int m_noPoints;
 };
