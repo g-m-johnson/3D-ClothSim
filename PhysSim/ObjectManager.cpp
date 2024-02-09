@@ -3,7 +3,7 @@
 
 void ObjectManager::CreateScene()
 {
-	m_pCloth = new Cloth(30, 20);
+	m_pCloth = new Cloth(30, 20, 1);
 	m_pCloth->Initialise();
 }
 

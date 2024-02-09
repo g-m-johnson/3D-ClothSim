@@ -27,7 +27,7 @@ private:
 	Vector2f m_position;
 	Vector2f m_prevPos;
 	
-	float m_cursorSize = 1;
+	float m_cursorSize = 5;
 
 	bool m_isMouseReleased = true;
 };

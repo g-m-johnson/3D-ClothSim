@@ -23,8 +23,8 @@ private:
 	ClothParticle* m_point1;
 	ClothParticle* m_point2;
 	float m_restLength;
-	float m_k = 500.f;	// spring constant
-	float m_c = 2.f;	// damping constant
+	float m_k = 1000.f;	// spring constant
+	float m_c = 0.001f;	// damping constant
 	bool m_isSelected = false;
 	bool m_isActive = true;
 };

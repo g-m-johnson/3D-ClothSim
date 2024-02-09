@@ -21,9 +21,9 @@ void Mouse::Update()
 		Graphics::DrawLine(m_ray.start, Vector3f(0,0,0), Colour::Red);
 		Graphics::EndPrimitiveBatch();
 
-		if (Input::GetMouseState().m_leftButton && m_isMouseReleased)
+		if (Input::GetMouseState().m_leftButton /*&& m_isMouseReleased*/)
 		{
-			ObjectManager::Instance().GetClothPtr()->ApplyExternalForce(i);
+			ObjectManager::Instance().GetClothPtr()->ApplyExternalForceToRadius(i, m_cursorSize);
 			m_isMouseReleased = false;
 		}
 	}

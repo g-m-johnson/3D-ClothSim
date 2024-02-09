@@ -7,7 +7,7 @@ class ClothSpring;
 class Cloth
 {
 public:
-	Cloth(float width, float height);
+	Cloth(int x, int y, float spacing);
 	~Cloth();
 
 	void Initialise();
@@ -16,6 +16,7 @@ public:
 	void Destroy();
 
 	void ApplyExternalForce(Vector3f pos);
+	void ApplyExternalForceToRadius(Vector3f pos, float radius);
 
 	void CalculateForces();
 
@@ -61,12 +62,15 @@ private:
 
 	Graphics::MeshId m_clothMesh;
 
-	float m_mass{ 1400.f };
+	float m_mass{ 800.f };
 	float m_dragCoeff{ 0.01f };
 
 	float m_width;
 	float m_height;
+	float m_spacing;
 
+	int m_x;
+	int m_y;
 	int m_noPoints;
 };
 

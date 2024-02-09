@@ -38,7 +38,7 @@ void ClothParticle::CalculateForces()
 	m_forces += drag * (length(m_velocity) * length(m_velocity)) * m_cloth->GetDrag();
 
 	// Wind
-	m_forces += m_cloth->GetWindForce();
+	//m_forces += m_cloth->GetWindForce();
 
 	// External forces
 	m_forces += m_forcesExt;

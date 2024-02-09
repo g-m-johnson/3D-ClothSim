@@ -2,10 +2,13 @@
 #include "ClothPoint.h"
 #include "ClothStick.h"
 
-Cloth::Cloth(float width, float height)
-	: m_width(width)
-	, m_height(height)
-	, m_noPoints(width * height)
+Cloth::Cloth(int x, int y, float spacing)
+	: m_x(x)
+	, m_y(y)
+	, m_width(x * spacing)
+	, m_height((float)y * spacing)
+	, m_spacing(spacing)
+	, m_noPoints(x * y)
 {
 	m_positions.resize(m_noPoints);
 	m_normals.resize(m_noPoints);
@@ -322,7 +325,22 @@ void Cloth::ApplyExternalForce(Vector3f pos)
 		}
 	}
 
-	closestParticle->ApplyExternalForce(Vector3f(0,0,100));
+	closestParticle->ApplyExternalForce(Vector3f(0,0,10000));
+}
+
+void Cloth::ApplyExternalForceToRadius(Vector3f pos, float radius)
+{
+	std::vector<ClothParticle*> inRadius;
+
+	for (ClothParticle* p : m_vPoints)
+	{
+		Vector3f AB = p->GetPosition() - pos;
+		if (lengthSqr(AB) < radius * radius)
+		{
+			p->ApplyExternalForce(Vector3f(0,0,1000));
+		}
+	}
+
 }
 
 void Cloth::CalculateForces()

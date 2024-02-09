@@ -16,7 +16,7 @@ int PlayMain()
 
 	srand((int)time(0));
 
-	Demo::SetDebugCameraPosition(Vector3f(20, 10, -50), 0, 0);
+	Demo::SetDebugCameraPosition(Vector3f(15, 10, -50), 0, 0);
 	Demo::SetDebugCameraFOV(kfPi / 4.f, 0.1f, 75.f);
 
 	ObjectManager::Instance().CreateScene();
