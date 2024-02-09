@@ -5,7 +5,7 @@
 Cloth::Cloth(int x, int y, float spacing)
 	: m_x(x)
 	, m_y(y)
-	, m_width(x * spacing)
+	, m_width((float)x * spacing)
 	, m_height((float)y * spacing)
 	, m_spacing(spacing)
 	, m_noPoints(x * y)
@@ -96,12 +96,12 @@ void Cloth::CreateClothMesh()
 	/// CALCULATE POSITIONS ----------------------------------------------------
 
 	std::vector<Vector3f> positions(m_noPoints);
-	for (u32 i = 0; i < m_height; i++)
+	for (u32 i = 0; i < m_y; i++)
 	{
-		for (u32 j = 0; j < m_width; j++)
+		for (u32 j = 0; j < m_x; j++)
 		{
-			u32 index = (i * (u32)m_width) + j;
-			positions[index] = Vector3f(j, i, 0);
+			u32 index = (i * m_x) + j;
+			positions[index] = Vector3f(j * m_spacing, i * m_spacing, 0);
 		}
 	}
 	m_positions = positions;
@@ -109,18 +109,18 @@ void Cloth::CreateClothMesh()
 	/// CALCULATE INDICES ------------------------------------------------------
 
 	std::vector<u32> indices;
-	for (int i = 0; i < m_height - 1; i++)
+	for (int i = 0; i < m_y - 1; i++)
 	{
-		for (int j = 0; j < m_width - 1; j++)
+		for (int j = 0; j < m_x - 1; j++)
 		{
-			u32 squ = (i * m_width) + j;
+			u32 squ = (i * m_x) + j;
 
 			indices.push_back(squ);
 			indices.push_back(squ + 1);
-			indices.push_back(squ + m_width + 1);
+			indices.push_back(squ + m_x + 1);
 			indices.push_back(squ);
-			indices.push_back(squ + m_width + 1);
-			indices.push_back(squ + m_width);
+			indices.push_back(squ + m_x + 1);
+			indices.push_back(squ + m_x);
 		}
 	}
 	m_indices = indices;
@@ -203,54 +203,59 @@ void Cloth::CreateMaterials()
 
 void Cloth::CreatePointsAndSticks()
 {
-	for (Vector3f p : m_positions)
+	for (int i = 0; i < m_y; i++)
 	{
-		ClothParticle* point = new ClothParticle(this, p);
-		point->SetMass(m_mass / m_noPoints);
+		for (int j = 0; j < m_x; j++)
+		{
+			int index = (i * m_x) + j;
 
-		if (!EqualTol(p.y, 0.0f, 0.001f))
-		{
-			ClothParticle* upPoint = m_vPoints[p.x + (p.y - 1) * (m_width)];
-			ClothSpring* stick = new ClothSpring(point, upPoint);
-			upPoint->AddStick(stick, 1);
-			point->AddStick(stick, 1);
-			m_vSticks.push_back(stick);
+			ClothParticle* point = new ClothParticle(this, m_positions[index]);
+			point->SetMass(m_mass / m_noPoints);
+	
+			if (i != 0)
+			{
+				ClothParticle* upPoint = m_vPoints[j + (i - 1) * m_x];
+				ClothSpring* stick = new ClothSpring(point, upPoint);
+				upPoint->AddStick(stick, 1);
+				point->AddStick(stick, 1);
+				m_vSticks.push_back(stick);
+			}
+	
+			if (i == m_y -1)
+			{
+				point->SetIsPinned(true);
+			}
+			else
+			{
+				point->SetVelocity(m_gravity);
+			}
+	
+			m_cornerPoints.resize(4);
+	
+			if (j == 0 && i == 0)
+			{
+				// A
+				m_cornerPoints.at(0) = point;
+			}
+			else if (j == 0 && i == m_y - 1)
+			{
+				// B
+				m_cornerPoints.at(1) = point;
+			}
+			else if (j == m_x - 1 && i == m_y - 1)
+			{
+				// C
+				m_cornerPoints.at(2) = point;
+			}
+			else if (j == m_x - 1 && i == 0)
+			{
+				// D
+				m_cornerPoints.at(3) = point;
+			}
+	
+	
+			m_vPoints.push_back(point);
 		}
-
-		if (EqualTol(p.y, m_height - 1.f, 0.001f))
-		{
-			point->SetIsPinned(true);
-		}
-		else
-		{
-			point->SetVelocity(m_gravity);
-		}
-
-		m_cornerPoints.resize(4);
-
-		if (EqualTol(p.x, 0.f, 0.001f) && EqualTol(p.y, 0.0f, 0.001f))
-		{
-			// A
-			m_cornerPoints.at(0) = point;
-		}
-		else if (EqualTol(p.x, 0.f, 0.001f) && EqualTol(p.y, m_height - 1.f, 0.001f))
-		{
-			// B
-			m_cornerPoints.at(1) = point;
-		}
-		else if (EqualTol(p.x, m_width - 1.f, 0.001f) && EqualTol(p.y, m_height - 1.f, 0.001f))
-		{
-			// C
-			m_cornerPoints.at(2) = point;
-		}
-		else if (EqualTol(p.x, m_width - 1.f, 0.001f) && EqualTol(p.y, 0.0f, 0.001f))
-		{
-			// D
-			m_cornerPoints.at(3) = point;
-		}
-
-
-		m_vPoints.push_back(point);
 	}
 
 }
