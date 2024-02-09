@@ -130,8 +130,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Cloth.cpp" />
-    <ClCompile Include="ClothPoint.cpp" />
-    <ClCompile Include="ClothStick.cpp" />
+    <ClCompile Include="ClothParticle.cpp" />
+    <ClCompile Include="ClothConstraint.cpp" />
     <ClCompile Include="Collision.cpp" />
     <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="Mouse.cpp" />
@@ -141,8 +141,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cloth.h" />
-    <ClInclude Include="ClothPoint.h" />
-    <ClInclude Include="ClothStick.h" />
+    <ClInclude Include="ClothParticle.h" />
+    <ClInclude Include="ClothConstraint.h" />
     <ClInclude Include="Collision.h" />
     <ClInclude Include="Geometry.h" />
     <ClInclude Include="Mouse.h" />

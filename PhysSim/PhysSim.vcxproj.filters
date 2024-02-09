@@ -21,10 +21,10 @@
     <ClCompile Include="Cloth.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ClothPoint.cpp">
+    <ClCompile Include="ClothParticle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ClothStick.cpp">
+    <ClCompile Include="ClothConstraint.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Mouse.cpp">
@@ -47,10 +47,10 @@
     <ClInclude Include="Cloth.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ClothPoint.h">
+    <ClInclude Include="ClothParticle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ClothStick.h">
+    <ClInclude Include="ClothConstraint.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Mouse.h">

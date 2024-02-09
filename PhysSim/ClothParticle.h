@@ -3,7 +3,7 @@
 using namespace Play3d;
 
 class Cloth;
-class ClothSpring;
+class ClothConstraint;
 
 class ClothParticle
 {
@@ -13,7 +13,7 @@ public:
 
 	void VerletIntegration();
 
-	void AddStick(ClothSpring* stick, int index);
+	void AddStick(ClothConstraint* stick, int index);
 
 	void CalculateForces();
 
@@ -47,7 +47,7 @@ private:
 	Vector3f m_acceleration{ 0, 0, 0 };
 
 	Cloth* m_cloth;
-	ClothSpring* m_sticks[2] = {nullptr};
+	ClothConstraint* m_sticks[2] = {nullptr};
 
 	float m_mass;
 

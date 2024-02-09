@@ -2,11 +2,11 @@
 
 class ClothParticle;
 
-class ClothSpring
+class ClothConstraint
 {
 public:
-	ClothSpring(ClothParticle* p1, ClothParticle* p2);
-	~ClothSpring();
+	ClothConstraint(ClothParticle* p1, ClothParticle* p2);
+	~ClothConstraint();
 
 	void Update();
 	void Render();
@@ -23,8 +23,8 @@ private:
 	ClothParticle* m_point1;
 	ClothParticle* m_point2;
 	float m_restLength;
-	float m_k = 1000.f;	// spring constant
-	float m_c = 0.001f;	// damping constant
+	float m_k = 1500.f;	// spring constant
+	float m_c = 0.1f;	// damping constant
 	bool m_isSelected = false;
 	bool m_isActive = true;
 };

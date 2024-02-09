@@ -1,7 +1,7 @@
 #include "PhysSimMain.h"
 #include "Cloth.h"
-#include "ClothPoint.h"
-#include "ClothStick.h"
+#include "ClothParticle.h"
+#include "ClothConstraint.h"
 #include "Mouse.h"
 
 ClothParticle::ClothParticle(Cloth* cloth, Vector3f pos)
@@ -22,7 +22,7 @@ void ClothParticle::VerletIntegration()
 	m_position = 2.0f * m_position - m_prevPos + m_acceleration * dT * dT;
 }
 
-void ClothParticle::AddStick(ClothSpring* stick, int index)
+void ClothParticle::AddStick(ClothConstraint* stick, int index)
 {
 	m_sticks[index] = stick;
 }

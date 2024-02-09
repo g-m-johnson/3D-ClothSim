@@ -2,12 +2,12 @@
 #include "Geometry.h"
 
 class ClothParticle;
-class ClothSpring;
+class ClothConstraint;
 
 class Cloth
 {
 public:
-	Cloth(int x, int y, float spacing);
+	Cloth(u32 x, u32 y, float spacing);
 	~Cloth();
 
 	void Initialise();
@@ -47,7 +47,7 @@ private:
 	std::vector<Vector3f> m_normals;
 
 	std::vector<ClothParticle*> m_vPoints;
-	std::vector<ClothSpring*> m_vSticks;
+	std::vector<ClothConstraint*> m_vSticks;
 
 	std::vector<ClothParticle*> m_cornerPoints;
 
@@ -62,15 +62,15 @@ private:
 
 	Graphics::MeshId m_clothMesh;
 
-	float m_mass{ 800.f };
+	float m_mass{ 500.f };
 	float m_dragCoeff{ 0.01f };
 
 	float m_width;
 	float m_height;
 	float m_spacing;
 
-	int m_x;
-	int m_y;
-	int m_noPoints;
+	u32 m_x;
+	u32 m_y;
+	u32 m_noPoints;
 };
 

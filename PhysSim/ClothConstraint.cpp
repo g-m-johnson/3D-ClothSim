@@ -1,19 +1,18 @@
-#include "ClothStick.h"
-#include "ClothPoint.h"
-#include "../Play3d/Play3d.h"
+#include "ClothConstraint.h"
+#include "ClothParticle.h"
 
-ClothSpring::ClothSpring(ClothParticle* p1, ClothParticle* p2)
+ClothConstraint::ClothConstraint(ClothParticle* p1, ClothParticle* p2)
 	: m_point1(p1)
 	, m_point2(p2)
 {
 	m_restLength = length(p2->GetPosition() - p1->GetPosition());
 }
 
-ClothSpring::~ClothSpring()
+ClothConstraint::~ClothConstraint()
 {
 }
 
-void ClothSpring::Update()
+void ClothConstraint::Update()
 {
 	if (!m_isActive)
 	{
@@ -32,7 +31,7 @@ void ClothSpring::Update()
 	m_point2->SetPosition(Vector3f(p1Pos.x - offset.x, p1Pos.y - offset.y, 0));
 }
 
-void ClothSpring::Render()
+void ClothConstraint::Render()
 {
 	if (!m_isActive)
 	{
@@ -41,7 +40,7 @@ void ClothSpring::Render()
 	Play3d::Graphics::DrawLine(m_point1->GetPosition(), m_point2->GetPosition(), Play3d::Colour::White);
 }
 
-void ClothSpring::CalculateSpringForces()
+void ClothConstraint::CalculateSpringForces()
 {
 	if (!m_isActive)
 	{

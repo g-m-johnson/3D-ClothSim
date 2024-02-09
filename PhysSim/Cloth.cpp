@@ -1,8 +1,8 @@
 #include "Cloth.h"
-#include "ClothPoint.h"
-#include "ClothStick.h"
+#include "ClothParticle.h"
+#include "ClothConstraint.h"
 
-Cloth::Cloth(int x, int y, float spacing)
+Cloth::Cloth(u32 x, u32 y, float spacing)
 	: m_x(x)
 	, m_y(y)
 	, m_width((float)x * spacing)
@@ -109,9 +109,9 @@ void Cloth::CreateClothMesh()
 	/// CALCULATE INDICES ------------------------------------------------------
 
 	std::vector<u32> indices;
-	for (int i = 0; i < m_y - 1; i++)
+	for (u32 i = 0; i < m_y - 1; i++)
 	{
-		for (int j = 0; j < m_x - 1; j++)
+		for (u32 j = 0; j < m_x - 1; j++)
 		{
 			u32 squ = (i * m_x) + j;
 
@@ -203,11 +203,11 @@ void Cloth::CreateMaterials()
 
 void Cloth::CreatePointsAndSticks()
 {
-	for (int i = 0; i < m_y; i++)
+	for (u32 i = 0; i < m_y; i++)
 	{
-		for (int j = 0; j < m_x; j++)
+		for (u32 j = 0; j < m_x; j++)
 		{
-			int index = (i * m_x) + j;
+			u32 index = (i * m_x) + j;
 
 			ClothParticle* point = new ClothParticle(this, m_positions[index]);
 			point->SetMass(m_mass / m_noPoints);
@@ -215,13 +215,13 @@ void Cloth::CreatePointsAndSticks()
 			if (i != 0)
 			{
 				ClothParticle* upPoint = m_vPoints[j + (i - 1) * m_x];
-				ClothSpring* stick = new ClothSpring(point, upPoint);
+				ClothConstraint* stick = new ClothConstraint(point, upPoint);
 				upPoint->AddStick(stick, 1);
 				point->AddStick(stick, 1);
 				m_vSticks.push_back(stick);
 			}
 	
-			if (i == m_y -1)
+			if (i == m_y - 1)
 			{
 				point->SetIsPinned(true);
 			}
@@ -272,7 +272,7 @@ void Cloth::CalculateWindForce()
 
 	Vector3f windx(1, 0, 0);
 	Vector3f windz(0, 0, 1);
-	m_windForce = (windz * 100.f * cosf(System::GetElapsedTime()));
+	m_windForce = (windz * 100.f * cosf((float)System::GetElapsedTime()));
 }
 
 void Cloth::Update()
@@ -308,7 +308,7 @@ void Cloth::Destroy()
 	{
 		delete point;
 	}
-	for (ClothSpring* stick : m_vSticks)
+	for (ClothConstraint* stick : m_vSticks)
 	{
 		delete stick;
 	}
@@ -360,7 +360,7 @@ void Cloth::CalculateForces()
 		}
 	}
 
-	for (ClothSpring* s : m_vSticks)
+	for (ClothConstraint* s : m_vSticks)
 	{
 		if (s->GetIsActive())
 		{
