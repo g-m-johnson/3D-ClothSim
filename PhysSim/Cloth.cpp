@@ -5,8 +5,6 @@
 Cloth::Cloth(u32 x, u32 y, float spacing)
 	: m_x(x)
 	, m_y(y)
-	, m_width((float)x * spacing)
-	, m_height((float)y * spacing)
 	, m_spacing(spacing)
 	, m_noPoints(x * y)
 {
@@ -196,7 +194,7 @@ void Cloth::CreateMaterials()
 	desc_s.m_bEnableLighting = true;
 	desc_s.m_lightCount = 1;
 
-	Colour::Seagreen.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
+	Colour::Deeppink.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
 	m_solidMat = Resources::CreateAsset<Graphics::Material>(desc_s);
 	
 }
@@ -212,16 +210,9 @@ void Cloth::CreatePointsAndSticks()
 			ClothParticle* point = new ClothParticle(this, m_positions[index]);
 			point->SetMass(m_mass / m_noPoints);
 	
-			if (i != 0)
-			{
-				ClothParticle* upPoint = m_vPoints[j + (i - 1) * m_x];
-				ClothConstraint* stick = new ClothConstraint(point, upPoint);
-				upPoint->AddStick(stick, 1);
-				point->AddStick(stick, 1);
-				m_vSticks.push_back(stick);
-			}
-	
-			if (i == m_y - 1)
+
+
+			if (i == m_y - 1 && (j == 0 || j == m_x - 1))
 			{
 				point->SetIsPinned(true);
 			}
@@ -258,6 +249,38 @@ void Cloth::CreatePointsAndSticks()
 		}
 	}
 
+	for (int y = 0; y < m_y; y++)
+	{
+		for (int x = 0; x < m_x; x++)
+		{
+			if (x < m_x - 1)
+			{
+				// Horizontal
+				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y * m_x) + (x + 1)]);
+				m_vSticks.push_back(pC);
+			}
+
+			if (y < m_y - 1)
+			{
+				// Vertical 
+				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y + 1) * m_x + x]);
+				m_vSticks.push_back(pC);
+			}
+
+			if (x < m_x - 1 && y < m_y - 1)
+			{
+				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y + 1) * m_x + (x + 1)]);
+				m_vSticks.push_back(pC);
+			}
+
+			if (x > 0 && y < m_y - 1)
+			{
+				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y + 1) * m_x + (x - 1)]);
+				m_vSticks.push_back(pC);
+			}
+		}
+
+	}
 }
 
 void Cloth::CalculateWindForce()
@@ -277,7 +300,7 @@ void Cloth::CalculateWindForce()
 
 void Cloth::Update()
 {
-	CalculateWindForce();
+	//CalculateWindForce();
 	CalculateForces();
 
 	for (int i = 0; i < m_vPoints.size(); i++)
@@ -362,9 +385,6 @@ void Cloth::CalculateForces()
 
 	for (ClothConstraint* s : m_vSticks)
 	{
-		if (s->GetIsActive())
-		{
-			s->CalculateSpringForces();
-		}
+		s->CalculateSpringForces();
 	}
 }

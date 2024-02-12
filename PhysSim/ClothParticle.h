@@ -13,8 +13,6 @@ public:
 
 	void VerletIntegration();
 
-	void AddStick(ClothConstraint* stick, int index);
-
 	void CalculateForces();
 
 	void ApplyExternalForce(Vector3f force);
@@ -45,11 +43,12 @@ private:
 	Vector3f m_forces{ 0, 0, 0 };
 	Vector3f m_velocity{ 0, 0, 0 };
 	Vector3f m_acceleration{ 0, 0, 0 };
+	Vector3f m_prevAccn{ 0, 0, 0 };
 
 	Cloth* m_cloth;
-	ClothConstraint* m_sticks[2] = {nullptr};
 
 	float m_mass;
+	float m_damping = 0.01f;
 
 	bool m_isPinned = false;
 	bool m_isCorner = false;

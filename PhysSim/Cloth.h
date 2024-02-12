@@ -62,13 +62,10 @@ private:
 
 	Graphics::MeshId m_clothMesh;
 
-	float m_mass{ 500.f };
-	float m_dragCoeff{ 0.01f };
+	float m_mass{ 1000.f };
+	float m_dragCoeff{ 0.03f };
 
-	float m_width;
-	float m_height;
 	float m_spacing;
-
 	u32 m_x;
 	u32 m_y;
 	u32 m_noPoints;
