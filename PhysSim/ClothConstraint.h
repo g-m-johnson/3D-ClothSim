@@ -1,4 +1,5 @@
 #pragma once
+#include "PhysSimMain.h"
 
 class ClothParticle;
 
@@ -9,12 +10,16 @@ public:
 	~ClothConstraint();
 
 	void CalculateSpringForces();
+	void DebugDrawConstraints();
 
 private:
 	ClothParticle* m_point1;
 	ClothParticle* m_point2;
+
 	float m_restLength;
-	float m_k = 1000.f;	// spring constant
-	float m_c = 1.f;	// damping constant
+	float m_k = SPRING_CONSTANT;	// spring constant
+	float m_c = DAMPING_CONSTANT;	// damping constant
+	
+	bool m_drawConstraints = false;
 };
 

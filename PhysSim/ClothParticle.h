@@ -1,6 +1,7 @@
 #pragma once
 #include "../Play3d/Play3d.h"
 using namespace Play3d;
+#include "PhysSimMain.h"
 
 class Cloth;
 class ClothConstraint;
@@ -34,6 +35,7 @@ public:
 
 	Vector3f GetVelocity() { return m_velocity; }
 	void SetVelocity(Vector3f v) { m_velocity = v; }
+
 private:
 	Vector3f m_position;
 	Vector3f m_prevPos;
@@ -47,8 +49,7 @@ private:
 
 	Cloth* m_cloth;
 
-	float m_mass;
-	float m_damping = 0.01f;
+	float m_mass = PARTICLE_MASS;
 
 	bool m_isPinned = false;
 	bool m_isCorner = false;

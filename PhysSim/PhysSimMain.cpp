@@ -10,8 +10,8 @@ int PlayMain()
 {
 	SystemDesc systemDesc;
 	systemDesc.title = "ClothSim";
-	systemDesc.width = 2160;
-	systemDesc.height = 1080;
+	systemDesc.width = DISPLAY_WIDTH;
+	systemDesc.height = DISPLAY_HEIGHT;
 	System::Initialise(systemDesc);
 
 	srand((int)time(0));

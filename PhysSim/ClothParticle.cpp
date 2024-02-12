@@ -9,7 +9,7 @@ ClothParticle::ClothParticle(Cloth* cloth, Vector3f pos)
 	, m_position(pos)
 	, m_prevPos(pos)
 	, m_initPos(pos)
-	, m_mass(1.f)
+	, m_mass(0.1f)
 {}
 
 ClothParticle::~ClothParticle()
@@ -17,12 +17,12 @@ ClothParticle::~ClothParticle()
 
 void ClothParticle::VerletIntegration()
 {
-	m_prevPos = m_position;
 	float dT = System::GetDeltaTime();
+	m_prevPos = m_position;
 	m_prevAccn = m_acceleration;
 
 	m_position = m_position + m_velocity * dT + m_acceleration * dT * dT * 0.5f;
- 	m_acceleration = m_forces / m_mass;
+ 	m_acceleration = m_forces/* / m_mass*/;
 	m_velocity = m_velocity + (m_prevAccn + m_acceleration) * dT * 0.5f;
 }
 

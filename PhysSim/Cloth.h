@@ -1,5 +1,6 @@
 #pragma once
 #include "Geometry.h"
+#include "PhysSimMain.h"
 
 class ClothParticle;
 class ClothConstraint;
@@ -54,7 +55,7 @@ private:
 	Geometry::Plane m_plane;
 	Geometry::Quad m_quad;
 
-	Vector3f m_gravity{ 0.0f, -9.81f, 0.0f };
+	Vector3f m_gravity{ 0.0f, Y_GRAVITY, 0.0f };
 	Vector3f m_windForce{ 0, 0, 0 };
 
 	Graphics::MaterialId m_wireframeMat;
@@ -62,8 +63,8 @@ private:
 
 	Graphics::MeshId m_clothMesh;
 
-	float m_mass{ 1000.f };
-	float m_dragCoeff{ 0.03f };
+	float m_mass{ 10.f };
+	float m_dragCoeff{ AIR_DRAG_COEFFICIENT };
 
 	float m_spacing;
 	u32 m_x;

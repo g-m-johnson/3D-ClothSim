@@ -208,11 +208,8 @@ void Cloth::CreatePointsAndSticks()
 			u32 index = (i * m_x) + j;
 
 			ClothParticle* point = new ClothParticle(this, m_positions[index]);
-			point->SetMass(m_mass / m_noPoints);
-	
-
-
-			if (i == m_y - 1 && (j == 0 || j == m_x - 1))
+			
+			if (i == m_y - 1/* && (j == 0 || j == m_x - 1)*/)
 			{
 				point->SetIsPinned(true);
 			}
@@ -365,7 +362,7 @@ void Cloth::ApplyExternalForceToRadius(Vector3f pos, float radius)
 		Vector3f AB = p->GetPosition() - pos;
 		if (lengthSqr(AB) < radius * radius)
 		{
-			p->ApplyExternalForce(Vector3f(0,0,1000));
+			p->ApplyExternalForce(Vector3f(0,0,100));
 		}
 	}
 
@@ -386,5 +383,6 @@ void Cloth::CalculateForces()
 	for (ClothConstraint* s : m_vSticks)
 	{
 		s->CalculateSpringForces();
+		s->DebugDrawConstraints();
 	}
 }
