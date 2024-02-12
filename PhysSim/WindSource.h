@@ -8,7 +8,6 @@ class WindSource
 public:
 
 	Vector3f CalculateForceAtPoint(Vector3f p);
-	
 
 	const Vector3f GetSourcePos() const { return m_sourcePos; }
 	void SetSourcePos(Vector3f pos) { m_sourcePos = pos; }
@@ -17,6 +16,7 @@ public:
 	void SetWindForce(Vector3f force) { m_force = force; }
 
 private:
+
 	Vector3f m_force;
 	Vector3f m_sourcePos;
 };

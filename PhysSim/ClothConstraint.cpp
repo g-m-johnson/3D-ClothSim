@@ -12,7 +12,7 @@ ClothConstraint::~ClothConstraint()
 {
 }
 
-void ClothConstraint::CalculateSpringForces()
+void ClothConstraint::CalculateSpringForces() const
 {
 	Vector3f dP = m_point1->GetPosition() - m_point2->GetPosition();
 	Vector3f dV = m_point1->GetVelocity() - m_point2->GetVelocity();
@@ -30,7 +30,7 @@ void ClothConstraint::CalculateSpringForces()
 	}
 }
 
-void ClothConstraint::DebugDrawConstraints()
+void ClothConstraint::DebugDrawConstraints() const
 {
 	if (m_drawConstraints)
 	{

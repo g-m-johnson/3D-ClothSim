@@ -4,8 +4,8 @@ constexpr int DISPLAY_WIDTH	= 2160;
 constexpr int DISPLAY_HEIGHT = 1080;
 constexpr int DISPLAY_SCALE	= 1;
 
-constexpr int X_PARTICLE_NO = 10;
-constexpr int Y_PARTICLE_NO = 6;
+constexpr int X_PARTICLE_NO = 30;
+constexpr int Y_PARTICLE_NO = 20;
 constexpr float PARTICLE_SPACING = 1.f;
 
 constexpr float AIR_DRAG_COEFFICIENT = 0.5f;

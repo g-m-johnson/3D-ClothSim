@@ -2,6 +2,9 @@
 #include "ClothParticle.h"
 #include "ClothConstraint.h"
 
+/// ----------------------------------------------------------------------------
+/// PUBLIC METHODS -------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 Cloth::Cloth(u32 x, u32 y, float spacing)
 	: m_x(x)
 	, m_y(y)
@@ -23,68 +26,70 @@ void Cloth::Initialise()
 	CreateClothMesh();
 	CreatePointsAndSticks();
 
-	m_plane = Geometry::Plane(Vector3f(0, 0, 1), 0);
 	m_quad = Geometry::Quad( m_cornerPoints[0]->GetPosition(),
 							 m_cornerPoints[1]->GetPosition(), 
 							 m_cornerPoints[2]->GetPosition(), 
 							 m_cornerPoints[3]->GetPosition() );
-
 }
 
-
-void Cloth::UpdatePositionBuffer()
+void Cloth::Update()
 {
-	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
-	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
-	D3D11_MAPPED_SUBRESOURCE data;
+	//CalculateWindForce();
+	CalculateForces();
 
-	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(0);
-	HRESULT hrPos = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
-	if (SUCCEEDED(hrPos))
+	for (int i = 0; i < m_vParticles.size(); i++)
 	{
-		memcpy(data.pData, m_positions.data(), sizeof(Vector3f) * m_positions.size());
-		pDC->Unmap(pBuffer, 0);
+		m_vParticles[i]->VerletIntegration();
+		m_positions[i] = m_vParticles[i]->GetPosition();
 	}
+
+	UpdatePositionBuffer();
+	UpdateNormalBuffer();
+
+	m_quad = Geometry::Quad(m_cornerPoints[0]->GetPosition(),
+		m_cornerPoints[1]->GetPosition(),
+		m_cornerPoints[2]->GetPosition(),
+		m_cornerPoints[3]->GetPosition());
 }
 
-void Cloth::RecalculateNormals()
+void Cloth::Render()
 {
-	std::fill(m_normals.begin(), m_normals.end(), Vector3f(0,0,0));
-
-	for (int i = 0; i < m_indices.size(); i += 3)
-	{
-		Vector3f AB = m_positions[m_indices[i + 1]] - m_positions[m_indices[i]];
-		Vector3f AC = m_positions[m_indices[i + 2]] - m_positions[m_indices[i]];
-		Vector3f fN = cross(AB, AC);
-		fN = normalize(fN);
-
-		m_normals[m_indices[i]] += fN;
-		m_normals[m_indices[i + 1]] += fN;
-		m_normals[m_indices[i + 2]] += fN;
-	}
-
-	for (int i = 0; i < m_normals.size(); i++)
-	{
-		m_normals[i] = normalize(m_normals[i]);
-	}
+	//Graphics::SetMaterial(wireframeMaterial);
+	Graphics::SetMaterial(m_solidMat);
+	Graphics::DrawMesh(m_clothMesh, MatrixTranslate<f32>(0.f, 0.f, 0.f));
 }
 
-void Cloth::UpdateNormalBuffer()
+void Cloth::Destroy()
 {
-	RecalculateNormals();
-	
-	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
-	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
-	D3D11_MAPPED_SUBRESOURCE data;
-
-	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(2);
-	HRESULT hrPos = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
-	if (SUCCEEDED(hrPos))
+	for (ClothParticle* point : m_vParticles)
 	{
-		memcpy(data.pData, m_normals.data(), sizeof(Vector3f) * m_normals.size());
-		pDC->Unmap(pBuffer, 0);
+		delete point;
+	}
+	for (ClothConstraint* stick : m_vConstraints)
+	{
+		delete stick;
 	}
 }
+
+void Cloth::ApplyExternalForceToRadius(Vector3f pos, float radius)
+{
+	std::vector<ClothParticle*> inRadius;
+
+	for (ClothParticle* p : m_vParticles)
+	{
+		Vector3f AB = p->GetPosition() - pos;
+		if (lengthSqr(AB) < radius * radius)
+		{
+			p->ApplyExternalForce(Vector3f(0, 0, 100));
+		}
+	}
+}
+
+
+
+/// ----------------------------------------------------------------------------
+/// PRIVATE METHODS ------------------------------------------------------------
+/// ----------------------------------------------------------------------------
 
 void Cloth::CreateClothMesh()
 {
@@ -171,7 +176,7 @@ void Cloth::CreateClothMesh()
 	desc.m_streamCount = 4;
 	desc.m_vertexCount = (u32)positions.size();
 	desc.m_indexCount = (u32)indices.size();
-	
+
 	m_clothMesh = Resources::CreateAsset<Graphics::Mesh>(desc);
 }
 
@@ -186,7 +191,7 @@ void Cloth::CreateMaterials()
 	desc_wf.m_bEnableLighting = false;
 
 	m_wireframeMat = Resources::CreateAsset<Graphics::Material>(desc_wf);
-	
+
 
 	Graphics::SimpleMaterialDesc desc_s;
 	desc_s.m_state.m_cullMode = Graphics::CullMode::NONE;
@@ -196,7 +201,7 @@ void Cloth::CreateMaterials()
 
 	Colour::Deeppink.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
 	m_solidMat = Resources::CreateAsset<Graphics::Material>(desc_s);
-	
+
 }
 
 void Cloth::CreatePointsAndSticks()
@@ -208,7 +213,7 @@ void Cloth::CreatePointsAndSticks()
 			u32 index = (i * m_x) + j;
 
 			ClothParticle* point = new ClothParticle(this, m_positions[index]);
-			
+
 			if (i == m_y - 1/* && (j == 0 || j == m_x - 1)*/)
 			{
 				point->SetIsPinned(true);
@@ -217,9 +222,9 @@ void Cloth::CreatePointsAndSticks()
 			{
 				point->SetVelocity(m_gravity);
 			}
-	
+
 			m_cornerPoints.resize(4);
-	
+
 			if (j == 0 && i == 0)
 			{
 				// A
@@ -240,137 +245,129 @@ void Cloth::CreatePointsAndSticks()
 				// D
 				m_cornerPoints.at(3) = point;
 			}
-	
-	
-			m_vPoints.push_back(point);
+
+
+			m_vParticles.push_back(point);
 		}
 	}
 
-	for (int y = 0; y < m_y; y++)
+	for (u32 y = 0; y < m_y; y++)
 	{
-		for (int x = 0; x < m_x; x++)
+		for (u32 x = 0; x < m_x; x++)
 		{
 			if (x < m_x - 1)
 			{
 				// Horizontal
-				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y * m_x) + (x + 1)]);
-				m_vSticks.push_back(pC);
+				//	.	.	.
+				//		
+				//	.	.___.
+				// 
+				//	.	.	.
+
+				ClothConstraint* pC = new ClothConstraint(m_vParticles[(y * m_x) + x], m_vParticles[(y * m_x) + (x + 1)]);
+				m_vConstraints.push_back(pC);
 			}
 
 			if (y < m_y - 1)
 			{
 				// Vertical 
-				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y + 1) * m_x + x]);
-				m_vSticks.push_back(pC);
+				//	.	.	.
+				//		|
+				//	.	.	.
+				// 
+				//	.	.	.
+
+				ClothConstraint* pC = new ClothConstraint(m_vParticles[(y * m_x) + x], m_vParticles[(y + 1) * m_x + x]);
+				m_vConstraints.push_back(pC);
 			}
 
 			if (x < m_x - 1 && y < m_y - 1)
 			{
-				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y + 1) * m_x + (x + 1)]);
-				m_vSticks.push_back(pC);
+				// Forwards diagonal
+				//	.	.	.
+				//		  /
+				//	.	.	.
+				// 
+				//	.	.	.
+
+				ClothConstraint* pC = new ClothConstraint(m_vParticles[(y * m_x) + x], m_vParticles[(y + 1) * m_x + (x + 1)]);
+				m_vConstraints.push_back(pC);
 			}
 
 			if (x > 0 && y < m_y - 1)
 			{
-				ClothConstraint* pC = new ClothConstraint(m_vPoints[(y * m_x) + x], m_vPoints[(y + 1) * m_x + (x - 1)]);
-				m_vSticks.push_back(pC);
+				// Backwards diagonal
+				//	.	.	.
+				//	  \
+				//	.	.	.
+				// 
+				//	.	.	.
+
+				ClothConstraint* pC = new ClothConstraint(m_vParticles[(y * m_x) + x], m_vParticles[(y + 1) * m_x + (x - 1)]);
+				m_vConstraints.push_back(pC);
 			}
 		}
 
 	}
 }
 
-void Cloth::CalculateWindForce()
+void Cloth::UpdatePositionBuffer()
 {
-// 	Vector3f wind = Vector3f((float)((rand() % 200) - 100) / 100.f, 0, ((float)((rand() % 200) - 100) / 100.f));
-// 	if (wind == Vector3f(0, 0, 0))
-// 	{
-// 		wind = Vector3f(1, 0, 0);
-// 	}
-// 	wind = normalize(wind);
-// 	m_windForce = wind * ((float)(rand() % 100) * (float)sin(System::GetElapsedTime()));
+	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
+	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
+	D3D11_MAPPED_SUBRESOURCE data;
 
-	Vector3f windx(1, 0, 0);
-	Vector3f windz(0, 0, 1);
-	m_windForce = (windz * 100.f * cosf((float)System::GetElapsedTime()));
-}
-
-void Cloth::Update()
-{
-	//CalculateWindForce();
-	CalculateForces();
-
-	for (int i = 0; i < m_vPoints.size(); i++)
+	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(0);
+	HRESULT hrPos = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+	if (SUCCEEDED(hrPos))
 	{
-		m_vPoints[i]->VerletIntegration();
-		m_positions[i] = m_vPoints[i]->GetPosition();
-	}
-
-	UpdatePositionBuffer();
-	UpdateNormalBuffer();
-
-	m_quad = Geometry::Quad(m_cornerPoints[0]->GetPosition(),
-		m_cornerPoints[1]->GetPosition(),
-		m_cornerPoints[2]->GetPosition(),
-		m_cornerPoints[3]->GetPosition());
-}
-
-void Cloth::Render()
-{
-	//Graphics::SetMaterial(wireframeMaterial);
-	Graphics::SetMaterial(m_solidMat);
-	Graphics::DrawMesh(m_clothMesh, MatrixTranslate<f32>(0.f, 0.f, 0.f));
-}
-
-void Cloth::Destroy()
-{
-	for (ClothParticle* point : m_vPoints)
-	{
-		delete point;
-	}
-	for (ClothConstraint* stick : m_vSticks)
-	{
-		delete stick;
+		memcpy(data.pData, m_positions.data(), sizeof(Vector3f) * m_positions.size());
+		pDC->Unmap(pBuffer, 0);
 	}
 }
 
-void Cloth::ApplyExternalForce(Vector3f pos)
+void Cloth::RecalculateNormals()
 {
-	// Find closest particle to pos
-	ClothParticle* closestParticle = m_vPoints[0];
-	float shortestlenSqr = 100.f;
-	for (ClothParticle* p : m_vPoints)
+	std::fill(m_normals.begin(), m_normals.end(), Vector3f(0,0,0));
+
+	for (int i = 0; i < m_indices.size(); i += 3)
 	{
-		Vector3f AB = p->GetPosition() - pos;
-		float ls = lengthSqr(AB);
-		if (ls < shortestlenSqr)
-		{
-			shortestlenSqr = ls;
-			closestParticle = p;
-		}
+		Vector3f AB = m_positions[m_indices[i + 1]] - m_positions[m_indices[i]];
+		Vector3f AC = m_positions[m_indices[i + 2]] - m_positions[m_indices[i]];
+		Vector3f fN = cross(AB, AC);
+		fN = normalize(fN);
+
+		m_normals[m_indices[i]] += fN;
+		m_normals[m_indices[i + 1]] += fN;
+		m_normals[m_indices[i + 2]] += fN;
 	}
 
-	closestParticle->ApplyExternalForce(Vector3f(0,0,10000));
+	for (int i = 0; i < m_normals.size(); i++)
+	{
+		m_normals[i] = normalize(m_normals[i]);
+	}
 }
 
-void Cloth::ApplyExternalForceToRadius(Vector3f pos, float radius)
+void Cloth::UpdateNormalBuffer()
 {
-	std::vector<ClothParticle*> inRadius;
+	RecalculateNormals();
+	
+	Graphics::Mesh* m = Resources::GetPtr<Graphics::Mesh>(m_clothMesh);
+	ID3D11DeviceContext* pDC = Graphics::GetDeviceContext();
+	D3D11_MAPPED_SUBRESOURCE data;
 
-	for (ClothParticle* p : m_vPoints)
+	ID3D11Buffer* pBuffer = m->GetStreamBufferPtr(2);
+	HRESULT hrPos = pDC->Map(pBuffer, 0, D3D11_MAP::D3D11_MAP_WRITE_DISCARD, 0, &data);
+	if (SUCCEEDED(hrPos))
 	{
-		Vector3f AB = p->GetPosition() - pos;
-		if (lengthSqr(AB) < radius * radius)
-		{
-			p->ApplyExternalForce(Vector3f(0,0,100));
-		}
+		memcpy(data.pData, m_normals.data(), sizeof(Vector3f) * m_normals.size());
+		pDC->Unmap(pBuffer, 0);
 	}
-
 }
 
 void Cloth::CalculateForces()
 {
-	for (ClothParticle* p : m_vPoints)
+	for (ClothParticle* p : m_vParticles)
 	{
 		p->ZeroForceVector();
 
@@ -380,9 +377,16 @@ void Cloth::CalculateForces()
 		}
 	}
 
-	for (ClothConstraint* s : m_vSticks)
+	for (ClothConstraint* c : m_vConstraints)
 	{
-		s->CalculateSpringForces();
-		s->DebugDrawConstraints();
+		c->CalculateSpringForces();
+		c->DebugDrawConstraints();
 	}
+}
+
+void Cloth::CalculateWindForce()
+{
+	Vector3f windx(1, 0, 0);
+	Vector3f windz(0, 0, 1);
+	m_windForce = (windz * 100.f * cosf((float)System::GetElapsedTime()));
 }
