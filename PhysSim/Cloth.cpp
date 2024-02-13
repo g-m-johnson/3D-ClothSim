@@ -1,7 +1,6 @@
 #include "Cloth.h"
 #include "ClothParticle.h"
 #include "ClothConstraint.h"
-#include "Utilities.h"
 
 /// ----------------------------------------------------------------------------
 /// PUBLIC METHODS -------------------------------------------------------------
