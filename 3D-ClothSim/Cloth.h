@@ -1,6 +1,6 @@
 #pragma once
 #include "Geometry.h"
-#include "PhysSimMain.h"
+#include "3D-ClothSimMain.h"
 
 class ClothParticle;
 class ClothConstraint;

@@ -129,6 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="3D-ClothSimMain.cpp" />
     <ClCompile Include="Cloth.cpp" />
     <ClCompile Include="ClothParticle.cpp" />
     <ClCompile Include="ClothConstraint.cpp" />
@@ -136,10 +137,10 @@
     <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="ObjectManager.cpp" />
-    <ClCompile Include="PhysSimMain.cpp" />
     <ClCompile Include="WindSource.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="3D-ClothSimMain.h" />
     <ClInclude Include="Cloth.h" />
     <ClInclude Include="ClothParticle.h" />
     <ClInclude Include="ClothConstraint.h" />
@@ -147,7 +148,6 @@
     <ClInclude Include="Geometry.h" />
     <ClInclude Include="Mouse.h" />
     <ClInclude Include="ObjectManager.h" />
-    <ClInclude Include="PhysSimMain.h" />
     <ClInclude Include="WindSource.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

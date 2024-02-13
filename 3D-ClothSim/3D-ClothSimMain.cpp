@@ -2,7 +2,7 @@
 #include "../Play3d/Play3d.h"
 using namespace Play3d;
 
-#include "PhysSimMain.h"
+#include "3D-ClothSimMain.h"
 #include "Mouse.h"
 #include "ObjectManager.h"
 
