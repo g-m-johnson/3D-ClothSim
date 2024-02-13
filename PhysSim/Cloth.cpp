@@ -243,11 +243,37 @@ void Cloth::CreateParticles()
 				point->SetVelocity(m_gravity);
 			}
 
-			if (i == 0)
-			{
-				point->SetMass(10 * PARTICLE_MASS);
-			}
 
+			/// Calculate masses ===============================================
+			
+			float f = 0;
+			if (i == 0 && j == 0)
+			{
+				f = 1.f;
+			}
+			else if (i == m_y && j == 0)
+			{
+				f = 2.f;
+			}
+			else if (i == 0 && j == m_x)
+			{
+				f = 2.f;
+			}
+			else if (i == m_y && j == m_x)
+			{
+				f = 1.f;
+			}
+			else if ((i == 0 || i == m_y) && (j != 0 && j != m_x))
+			{
+				f = 3.f;
+			}
+			else
+			{
+				f = 6.f;
+			}
+			point->SetMass((f * MASS_PER_FACE / 3.f));
+
+			/// Find corners ===================================================
 			m_cornerPoints.resize(4);
 
 			if (j == 0 && i == 0)
