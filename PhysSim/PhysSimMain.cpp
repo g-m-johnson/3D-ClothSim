@@ -16,16 +16,16 @@ int PlayMain()
 
 	srand((int)time(0));
 
-	Demo::SetDebugCameraPosition(Vector3f(15, 10, -50), 0, 0);
+	Demo::SetDebugCameraPosition(Vector3f(7.5, 4.5, -20), 0, 0);
 	Demo::SetDebugCameraFOV(kfPi / 4.f, 0.1f, 75.f);
 
 	ObjectManager::Instance().CreateScene();
 
-
-
 	Graphics::SetLightColour(0, ColourValue(0xFFFFFF));
 	Graphics::SetLightDirection(0, Vector3f(1, 1, 1));
 
+	Graphics::SetLightColour(1, Colour::Red);
+	Graphics::SetLightDirection(1, Vector3f( -1, -1, -1));
 
 	//---------------------------MAIN UPDATE LOOP-------------------------------
 
@@ -39,7 +39,6 @@ int PlayMain()
 
 		Demo::UpdateDebugCamera();
 		Demo::SetDebugCameraMatrices();
-		Demo::DrawDebugGrid();
 
 		Mouse::Instance().Update();
 

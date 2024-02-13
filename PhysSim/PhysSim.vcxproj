@@ -137,6 +137,7 @@
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="ObjectManager.cpp" />
     <ClCompile Include="PhysSimMain.cpp" />
+    <ClCompile Include="Utilities.cpp" />
     <ClCompile Include="WindSource.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -148,6 +149,7 @@
     <ClInclude Include="Mouse.h" />
     <ClInclude Include="ObjectManager.h" />
     <ClInclude Include="PhysSimMain.h" />
+    <ClInclude Include="Utilities.h" />
     <ClInclude Include="WindSource.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -29,6 +29,8 @@ public:
 	const Vector3f GetVelocity() const { return m_velocity; }
 	void SetVelocity(const Vector3f v) { m_velocity = v; }
 
+	void SetMass(float m) { m_mass = m; }
+
 private:
 
 	Vector3f m_forcesExt;
@@ -41,7 +43,7 @@ private:
 
 	Cloth* m_cloth; // Making this const ptr breaks sim?? 
 
-	const float m_mass = PARTICLE_MASS;
+	float m_mass = PARTICLE_MASS;
 
 	bool m_isPinned = false;
 };

@@ -1,6 +1,7 @@
 #include "Cloth.h"
 #include "ClothParticle.h"
 #include "ClothConstraint.h"
+#include "Utilities.h"
 
 /// ----------------------------------------------------------------------------
 /// PUBLIC METHODS -------------------------------------------------------------
@@ -24,7 +25,8 @@ void Cloth::Initialise()
 {
 	CreateMaterials();
 	CreateClothMesh();
-	CreatePointsAndSticks();
+	CreateParticles();
+	CreateConstraints();
 
 	m_quad = Geometry::Quad( m_cornerPoints[0]->GetPosition(),
 							 m_cornerPoints[1]->GetPosition(), 
@@ -80,7 +82,7 @@ void Cloth::ApplyExternalForceToRadius(Vector3f pos, float radius)
 		Vector3f AB = p->GetPosition() - pos;
 		if (lengthSqr(AB) < radius * radius)
 		{
-			p->ApplyExternalForce(Vector3f(0, 0, 100));
+			p->ApplyExternalForce(Vector3f(0, 0, 50));
 		}
 	}
 }
@@ -150,6 +152,20 @@ void Cloth::CreateClothMesh()
 
 	m_normals = normals;
 
+	/// CALCULATE UV's ---------------------------------------------------------
+
+	std::vector<Vector2f> UVs(m_noPoints, Vector2f(0, 0));
+	const f32 uvScale = 0.1f;
+	for (u32 y = 0; y < m_y; ++y)
+	{
+		for (u32 x = 0; x < m_x; ++x)
+		{
+			u32 i = y * m_x + x;
+
+			UVs[i] = Vector2f(x * uvScale, y * uvScale);
+		}
+	}
+
 	/// CREATE MESH ------------------------------------------------------------
 
 	Graphics::MeshDesc desc;
@@ -172,8 +188,12 @@ void Cloth::CreateClothMesh()
 	streamInfos[3].m_pData = indices.data();
 	streamInfos[3].m_dataSize = indices.size() * sizeof(u32);
 
+	streamInfos[4].m_type = Graphics::StreamType::UV;
+	streamInfos[4].m_pData = UVs.data();
+	streamInfos[4].m_dataSize = UVs.size() * sizeof(Vector2f);
+
 	desc.m_pStreams = streamInfos;
-	desc.m_streamCount = 4;
+	desc.m_streamCount = 5;
 	desc.m_vertexCount = (u32)positions.size();
 	desc.m_indexCount = (u32)indices.size();
 
@@ -198,13 +218,14 @@ void Cloth::CreateMaterials()
 	desc_s.m_state.m_fillMode = Graphics::FillMode::SOLID;
 	desc_s.m_bEnableLighting = true;
 	desc_s.m_lightCount = 1;
-
-	Colour::Deeppink.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
+	Colour::White.as_float_rgba_srgb(&desc_s.m_constants.diffuseColour.x);
+	desc_s.m_texture[0] = Graphics::CreateTextureFromFile("Data/willow-bough.png");
+	desc_s.m_sampler[0] = Graphics::CreateLinearSampler();
+	
 	m_solidMat = Resources::CreateAsset<Graphics::Material>(desc_s);
-
 }
 
-void Cloth::CreatePointsAndSticks()
+void Cloth::CreateParticles()
 {
 	for (u32 i = 0; i < m_y; i++)
 	{
@@ -221,6 +242,11 @@ void Cloth::CreatePointsAndSticks()
 			else
 			{
 				point->SetVelocity(m_gravity);
+			}
+
+			if (i == 0)
+			{
+				point->SetMass(10 * PARTICLE_MASS);
 			}
 
 			m_cornerPoints.resize(4);
@@ -250,7 +276,10 @@ void Cloth::CreatePointsAndSticks()
 			m_vParticles.push_back(point);
 		}
 	}
+}
 
+void Cloth::CreateConstraints()
+{
 	for (u32 y = 0; y < m_y; y++)
 	{
 		for (u32 x = 0; x < m_x; x++)
@@ -307,7 +336,6 @@ void Cloth::CreatePointsAndSticks()
 				m_vConstraints.push_back(pC);
 			}
 		}
-
 	}
 }
 

@@ -28,7 +28,8 @@ private:
 
 	void CreateClothMesh();
 	void CreateMaterials();
-	void CreatePointsAndSticks();
+	void CreateParticles();
+	void CreateConstraints();
 
 	void UpdatePositionBuffer();
 	void RecalculateNormals();

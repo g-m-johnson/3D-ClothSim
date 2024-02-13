@@ -1,5 +1,6 @@
 #pragma once
 #include "Geometry.h"
+#include "PhysSimMain.h"
 
 class Mouse
 {
@@ -22,6 +23,6 @@ private:
 	Geometry::Ray m_ray;
 	Vector3f m_mouseWorld;
 	
-	const float m_cursorSize = 5;
+	const float m_cursorSize = CURSOR_RADIUS;
 };
 
